@@ -35,6 +35,10 @@
           <select id="chipPreset"></select>
         </label>
         <label class="field">
+          <span>定时器时钟来源</span>
+          <select id="clockProfile"></select>
+        </label>
+        <label class="field">
           <span>TIMxCLK / APB 定时器时钟 (MHz)</span>
           <input id="apbClockMhz" type="number" min="0.000001" step="0.1" value="72">
         </label>
@@ -56,6 +60,13 @@
         <label class="field">
           <span>比较值 CCR</span>
           <input id="compareValue" type="number" min="0" step="1" value="500">
+        </label>
+        <label class="field">
+          <span>占空比口径</span>
+          <select id="dutyCycleMode">
+            <option value="hardware" selected>硬件准确：CCR / (ARR + 1)</option>
+            <option value="legacy">Excel legacy：CCR / ARR</option>
+          </select>
         </label>
         <label class="field">
           <span>CKD 分频</span>
@@ -152,7 +163,7 @@
         <article class="card">
           <span class="label">占空比</span>
           <strong id="dutyCycle">-</strong>
-          <small>保留 Excel 口径：CCR / ARR × 100%</small>
+          <small id="dutyCycleDetail">-</small>
         </article>
       </div>
     </section>
@@ -172,6 +183,11 @@
           <span class="label">DTG 二进制</span>
           <strong id="dtgBinary">-</strong>
           <small id="dtgBinarySplit">-</small>
+        </article>
+        <article class="card">
+          <span class="label">当前 RM 分支</span>
+          <strong id="dtgBranch">-</strong>
+          <small id="dtgFormula">-</small>
         </article>
         <article class="card">
           <span class="label">步长 Tdtg</span>
@@ -196,23 +212,18 @@
           <tbody>
             <tr>
               <td>DTG[7:0]</td>
-              <td id="dtg80Dec">-</td>
-              <td id="dtg80Bin">-</td>
+              <td id="dtgRawDec">-</td>
+              <td id="dtgRawBin">-</td>
             </tr>
             <tr>
-              <td>DTG[7:5]</td>
-              <td id="dtg75Dec">-</td>
-              <td id="dtg75Bin">-</td>
+              <td>前缀位</td>
+              <td id="dtgPrefixDec">-</td>
+              <td id="dtgPrefixBin">-</td>
             </tr>
             <tr>
-              <td>DTG[4:0]</td>
-              <td id="dtg40Dec">-</td>
-              <td id="dtg40Bin">-</td>
-            </tr>
-            <tr>
-              <td>DTG[5:0]</td>
-              <td id="dtg50Dec">-</td>
-              <td id="dtg50Bin">-</td>
+              <td id="dtgActiveLabel">当前有效字段</td>
+              <td id="dtgActiveDec">-</td>
+              <td id="dtgActiveBin">-</td>
             </tr>
           </tbody>
         </table>

@@ -1,57 +1,309 @@
-const STORAGE_KEY = "stm32-timer-calculator-state-v2";
+const STORAGE_KEY = "stm32-timer-calculator-state-v3";
+
+function manualClockProfile() {
+  return { id: "manual", label: "手工输入", apbClockMhz: null };
+}
+
+function commonClockProfiles(clockMhz, label = "常用 TIMxCLK") {
+  return [
+    { id: "common", label, apbClockMhz: clockMhz, isDefault: true },
+    manualClockProfile(),
+  ];
+}
+
+function dualBusClockProfiles(apb1Mhz, apb2Mhz) {
+  return [
+    { id: "apb1", label: `APB1 定时器（常用） / ${apb1Mhz} MHz`, apbClockMhz: apb1Mhz, isDefault: true },
+    { id: "apb2", label: `APB2 定时器 / ${apb2Mhz} MHz`, apbClockMhz: apb2Mhz },
+    manualClockProfile(),
+  ];
+}
 
 const PRESET_GROUPS = [
   {
     label: "F0 / F1 / F3",
     items: [
-      { id: "stm32f030", name: "STM32F030", family: "STM32F0", apbClockMhz: 48, note: "常见 48 MHz 起点，适合快速估算基础定时器参数。", bitsHint: "大多数定时器为 16 位" },
-      { id: "stm32f072", name: "STM32F072", family: "STM32F0", apbClockMhz: 48, note: "USB 常用系列，定时器起点通常按 48 MHz 工程值估算。", bitsHint: "大多数定时器为 16 位" },
-      { id: "stm32f103", name: "STM32F103", family: "STM32F1", apbClockMhz: 72, note: "Blue Pill 等常见 F1 方案，默认延续原工作簿参数。", bitsHint: "TIM2 常见 32 位，其余多为 16 位" },
-      { id: "stm32f303", name: "STM32F303", family: "STM32F3", apbClockMhz: 72, note: "电机控制常见系列，适合做 PWM 和死区时间初算。", bitsHint: "大多数定时器为 16 位" },
+      {
+        id: "stm32f030",
+        name: "STM32F030",
+        family: "STM32F0",
+        note: "常见 48 MHz 起点，适合快速估算基础定时器参数。",
+        bitsHint: "大多数定时器为 16 位",
+        clockProfiles: commonClockProfiles(48),
+      },
+      {
+        id: "stm32f072",
+        name: "STM32F072",
+        family: "STM32F0",
+        note: "USB 常用系列，定时器起点通常按 48 MHz 工程值估算。",
+        bitsHint: "大多数定时器为 16 位",
+        clockProfiles: commonClockProfiles(48),
+      },
+      {
+        id: "stm32f103",
+        name: "STM32F103",
+        family: "STM32F1",
+        note: "Blue Pill 等常见 F1 方案，默认延续原工作簿参数。",
+        bitsHint: "TIM2 常见 32 位，其余多为 16 位",
+        clockProfiles: commonClockProfiles(72),
+      },
+      {
+        id: "stm32f303",
+        name: "STM32F303",
+        family: "STM32F3",
+        note: "电机控制常见系列，适合做 PWM 和死区时间初算。",
+        bitsHint: "大多数定时器为 16 位",
+        clockProfiles: commonClockProfiles(72),
+      },
     ],
   },
   {
     label: "F4 / F7",
     items: [
-      { id: "stm32f401", name: "STM32F401", family: "STM32F4", apbClockMhz: 84, note: "轻量级 F4 常见起点。", bitsHint: "TIM2 / TIM5 常见 32 位" },
-      { id: "stm32f411", name: "STM32F411", family: "STM32F4", apbClockMhz: 100, note: "常见 DSP/控制类项目起点。", bitsHint: "TIM2 / TIM5 常见 32 位" },
-      { id: "stm32f407", name: "STM32F407", family: "STM32F4", apbClockMhz: 168, note: "原工具已有型号，保留为常见 F4 高性能配置。", bitsHint: "TIM2 / TIM5 常见 32 位" },
-      { id: "stm32f429", name: "STM32F429", family: "STM32F4", apbClockMhz: 180, note: "带 LTDC 的 F4 系列，常用于屏幕项目。", bitsHint: "TIM2 / TIM5 常见 32 位" },
-      { id: "stm32f446", name: "STM32F446", family: "STM32F4", apbClockMhz: 180, note: "常见于中高性能控制项目。", bitsHint: "TIM2 / TIM5 常见 32 位" },
-      { id: "stm32f767", name: "STM32F767", family: "STM32F7", apbClockMhz: 216, note: "F7 系列常见高性能起点。", bitsHint: "TIM2 / TIM5 常见 32 位" },
+      {
+        id: "stm32f401",
+        name: "STM32F401",
+        family: "STM32F4",
+        note: "F401 常见工程里 APB1 / APB2 定时器都可落在 84 MHz 左右。",
+        bitsHint: "TIM2 / TIM5 常见 32 位",
+        clockProfiles: commonClockProfiles(84, "常见 APB 定时器"),
+      },
+      {
+        id: "stm32f411",
+        name: "STM32F411",
+        family: "STM32F4",
+        note: "F411 常见工程里 APB1 / APB2 定时器都可落在 100 MHz 左右。",
+        bitsHint: "TIM2 / TIM5 常见 32 位",
+        clockProfiles: commonClockProfiles(100, "常见 APB 定时器"),
+      },
+      {
+        id: "stm32f407",
+        name: "STM32F407",
+        family: "STM32F4",
+        note: "已按常见 APB1 定时器默认值处理，避免 TIM2-TIM5 直接算错 2 倍。",
+        bitsHint: "TIM2 / TIM5 常见 32 位",
+        clockProfiles: dualBusClockProfiles(84, 168),
+      },
+      {
+        id: "stm32f429",
+        name: "STM32F429",
+        family: "STM32F4",
+        note: "带 LTDC 的 F4 系列，默认先按 APB1 定时器 90 MHz 起算。",
+        bitsHint: "TIM2 / TIM5 常见 32 位",
+        clockProfiles: dualBusClockProfiles(90, 180),
+      },
+      {
+        id: "stm32f446",
+        name: "STM32F446",
+        family: "STM32F4",
+        note: "默认先按 APB1 定时器 90 MHz 起算，需要高级定时器时可切到 APB2。",
+        bitsHint: "TIM2 / TIM5 常见 32 位",
+        clockProfiles: dualBusClockProfiles(90, 180),
+      },
+      {
+        id: "stm32f767",
+        name: "STM32F767",
+        family: "STM32F7",
+        note: "默认先按 APB1 定时器 108 MHz 起算，避免通用定时器误差翻倍。",
+        bitsHint: "TIM2 / TIM5 常见 32 位",
+        clockProfiles: dualBusClockProfiles(108, 216),
+      },
     ],
   },
   {
     label: "G0 / G4",
     items: [
-      { id: "stm32g030", name: "STM32G030", family: "STM32G0", apbClockMhz: 64, note: "G0 入门系列，适合低成本控制。", bitsHint: "大多数定时器为 16 位" },
-      { id: "stm32g071", name: "STM32G071", family: "STM32G0", apbClockMhz: 64, note: "G0 系列常见工程起点。", bitsHint: "大多数定时器为 16 位" },
-      { id: "stm32g431", name: "STM32G431", family: "STM32G4", apbClockMhz: 170, note: "G4 电机控制常见系列，适合高分辨率 PWM。", bitsHint: "大多数定时器为 16 位" },
-      { id: "stm32g474", name: "STM32G474", family: "STM32G4", apbClockMhz: 170, note: "G4 高性能控制系列，常用于数字电源。", bitsHint: "大多数定时器为 16 位" },
+      {
+        id: "stm32g030",
+        name: "STM32G030",
+        family: "STM32G0",
+        note: "G0 入门系列，适合低成本控制。",
+        bitsHint: "大多数定时器为 16 位",
+        clockProfiles: commonClockProfiles(64),
+      },
+      {
+        id: "stm32g071",
+        name: "STM32G071",
+        family: "STM32G0",
+        note: "G0 系列常见工程起点。",
+        bitsHint: "大多数定时器为 16 位",
+        clockProfiles: commonClockProfiles(64),
+      },
+      {
+        id: "stm32g431",
+        name: "STM32G431",
+        family: "STM32G4",
+        note: "G4 电机控制常见系列，适合高分辨率 PWM。",
+        bitsHint: "大多数定时器为 16 位",
+        clockProfiles: commonClockProfiles(170),
+      },
+      {
+        id: "stm32g474",
+        name: "STM32G474",
+        family: "STM32G4",
+        note: "G4 高性能控制系列，常用于数字电源。",
+        bitsHint: "大多数定时器为 16 位",
+        clockProfiles: commonClockProfiles(170),
+      },
     ],
   },
   {
     label: "H7",
     items: [
-      { id: "stm32h743", name: "STM32H743", family: "STM32H7", apbClockMhz: 240, note: "这里用常见 TIMxCLK 上限 240 MHz 起算，不直接等于 480 MHz CPU 主频。", bitsHint: "TIM2 / TIM5 常见 32 位" },
-      { id: "stm32h750", name: "STM32H750", family: "STM32H7", apbClockMhz: 240, note: "修正原表中的 480 MHz 口径，预设改为更合理的 240 MHz TIMxCLK 起点。", bitsHint: "TIM2 / TIM5 常见 32 位" },
+      {
+        id: "stm32h723",
+        name: "STM32H723",
+        family: "STM32H7",
+        note: "H723/H733 属于 550 MHz 级 H7；这里给出常见高性能工程起点，最终请按 RCC 实际 TIM 内核时钟修正。",
+        bitsHint: "TIM2 / TIM5 常见 32 位",
+        clockProfiles: commonClockProfiles(275, "H7 常见高性能 TIMxCLK"),
+      },
+      {
+        id: "stm32h730",
+        name: "STM32H730",
+        family: "STM32H7",
+        note: "550 MHz 级 H7 单核系列，默认给一个可编辑起点。",
+        bitsHint: "TIM2 / TIM5 常见 32 位",
+        clockProfiles: commonClockProfiles(275, "H7 常见高性能 TIMxCLK"),
+      },
+      {
+        id: "stm32h733",
+        name: "STM32H733",
+        family: "STM32H7",
+        note: "550 MHz 级 H7 单核系列，适合高性能控制与通信项目。",
+        bitsHint: "TIM2 / TIM5 常见 32 位",
+        clockProfiles: commonClockProfiles(275, "H7 常见高性能 TIMxCLK"),
+      },
+      {
+        id: "stm32h735",
+        name: "STM32H735",
+        family: "STM32H7",
+        note: "550 MHz 级 H7 单核系列，默认给可编辑的高性能定时器时钟起点。",
+        bitsHint: "TIM2 / TIM5 常见 32 位",
+        clockProfiles: commonClockProfiles(275, "H7 常见高性能 TIMxCLK"),
+      },
+      {
+        id: "stm32h743",
+        name: "STM32H743",
+        family: "STM32H7",
+        note: "480 MHz 级 H7 单核系列，常见 TIMxCLK 起点按 240 MHz 估算。",
+        bitsHint: "TIM2 / TIM5 常见 32 位",
+        clockProfiles: commonClockProfiles(240, "H7 常见 TIMxCLK"),
+      },
+      {
+        id: "stm32h745",
+        name: "STM32H745",
+        family: "STM32H7",
+        note: "双核 H7，M7 常见 480 MHz；页面预设仍只作为定时器时钟起点。",
+        bitsHint: "TIM2 / TIM5 常见 32 位",
+        clockProfiles: commonClockProfiles(240, "H7 常见 TIMxCLK"),
+      },
+      {
+        id: "stm32h747",
+        name: "STM32H747",
+        family: "STM32H7",
+        note: "双核 H7，适合图形与高带宽应用；TIM 时钟仍需按工程时钟树确认。",
+        bitsHint: "TIM2 / TIM5 常见 32 位",
+        clockProfiles: commonClockProfiles(240, "H7 常见 TIMxCLK"),
+      },
+      {
+        id: "stm32h750",
+        name: "STM32H750",
+        family: "STM32H7",
+        note: "修正原表中的 480 MHz 口径，默认改为更合理的 240 MHz TIMxCLK 起点。",
+        bitsHint: "TIM2 / TIM5 常见 32 位",
+        clockProfiles: commonClockProfiles(240, "H7 常见 TIMxCLK"),
+      },
+      {
+        id: "stm32h753",
+        name: "STM32H753",
+        family: "STM32H7",
+        note: "与 H743 同代，定时器时钟仍建议按工程时钟树确认。",
+        bitsHint: "TIM2 / TIM5 常见 32 位",
+        clockProfiles: commonClockProfiles(240, "H7 常见 TIMxCLK"),
+      },
+      {
+        id: "stm32h755",
+        name: "STM32H755",
+        family: "STM32H7",
+        note: "双核 H7，默认给 240 MHz 级 TIMxCLK 起点以便快速估算。",
+        bitsHint: "TIM2 / TIM5 常见 32 位",
+        clockProfiles: commonClockProfiles(240, "H7 常见 TIMxCLK"),
+      },
+      {
+        id: "stm32h757",
+        name: "STM32H757",
+        family: "STM32H7",
+        note: "双核 H7，适合复杂图形和高速接口项目；时钟值请按实际时钟树修正。",
+        bitsHint: "TIM2 / TIM5 常见 32 位",
+        clockProfiles: commonClockProfiles(240, "H7 常见 TIMxCLK"),
+      },
     ],
   },
   {
     label: "L / U / 无线",
     items: [
-      { id: "stm32l031", name: "STM32L031", family: "STM32L0", apbClockMhz: 32, note: "低功耗小型项目常见系列。", bitsHint: "大多数定时器为 16 位" },
-      { id: "stm32l072", name: "STM32L072", family: "STM32L0", apbClockMhz: 32, note: "低功耗带更多外设的 L0 起点。", bitsHint: "大多数定时器为 16 位" },
-      { id: "stm32l476", name: "STM32L476", family: "STM32L4", apbClockMhz: 80, note: "L4 常用高性能低功耗系列。", bitsHint: "大多数定时器为 16 位" },
-      { id: "stm32u575", name: "STM32U575", family: "STM32U5", apbClockMhz: 160, note: "U5 系列常见起点，适合更高安全需求项目。", bitsHint: "大多数定时器为 16 位" },
-      { id: "stm32wb55", name: "STM32WB55", family: "STM32WB", apbClockMhz: 64, note: "BLE / Thread 双核无线常见系列。", bitsHint: "大多数定时器为 16 位" },
-      { id: "stm32wl55", name: "STM32WL55", family: "STM32WL", apbClockMhz: 48, note: "LoRa / Sub-GHz 无线项目常见起点。", bitsHint: "大多数定时器为 16 位" },
+      {
+        id: "stm32l031",
+        name: "STM32L031",
+        family: "STM32L0",
+        note: "低功耗小型项目常见系列。",
+        bitsHint: "大多数定时器为 16 位",
+        clockProfiles: commonClockProfiles(32),
+      },
+      {
+        id: "stm32l072",
+        name: "STM32L072",
+        family: "STM32L0",
+        note: "低功耗带更多外设的 L0 起点。",
+        bitsHint: "大多数定时器为 16 位",
+        clockProfiles: commonClockProfiles(32),
+      },
+      {
+        id: "stm32l476",
+        name: "STM32L476",
+        family: "STM32L4",
+        note: "L4 常用高性能低功耗系列。",
+        bitsHint: "大多数定时器为 16 位",
+        clockProfiles: commonClockProfiles(80),
+      },
+      {
+        id: "stm32u575",
+        name: "STM32U575",
+        family: "STM32U5",
+        note: "U5 系列常见起点，适合更高安全需求项目。",
+        bitsHint: "大多数定时器为 16 位",
+        clockProfiles: commonClockProfiles(160),
+      },
+      {
+        id: "stm32wb55",
+        name: "STM32WB55",
+        family: "STM32WB",
+        note: "BLE / Thread 双核无线常见系列。",
+        bitsHint: "大多数定时器为 16 位",
+        clockProfiles: commonClockProfiles(64),
+      },
+      {
+        id: "stm32wl55",
+        name: "STM32WL55",
+        family: "STM32WL",
+        note: "LoRa / Sub-GHz 无线项目常见起点。",
+        bitsHint: "大多数定时器为 16 位",
+        clockProfiles: commonClockProfiles(48),
+      },
     ],
   },
   {
     label: "自定义",
     items: [
-      { id: "custom", name: "自定义", family: "手工输入", apbClockMhz: null, note: "自行填写实际 TIMxCLK / APB 定时器时钟。", bitsHint: "按具体定时器选择位宽" },
+      {
+        id: "custom",
+        name: "自定义",
+        family: "手工输入",
+        note: "自行填写实际 TIMxCLK / APB 定时器时钟。",
+        bitsHint: "按具体定时器选择位宽",
+        clockProfiles: [manualClockProfile()],
+      },
     ],
   },
 ];
@@ -61,6 +313,7 @@ const PRESET_MAP = new Map(PRESETS.map((preset) => [preset.id, preset]));
 
 const DEFAULT_STATE = {
   chipPreset: "stm32f103",
+  clockProfile: "common",
   apbClockMhz: "72",
   timerBits: "16",
   prescaler: "720",
@@ -69,15 +322,18 @@ const DEFAULT_STATE = {
   clockDivision: "4",
   dtgValue: "255",
   targetFrequencyHz: "",
+  dutyCycleMode: "hardware",
 };
 
 const elements = {
   chipPreset: document.getElementById("chipPreset"),
+  clockProfile: document.getElementById("clockProfile"),
   apbClockMhz: document.getElementById("apbClockMhz"),
   timerBits: document.getElementById("timerBits"),
   prescaler: document.getElementById("prescaler"),
   counterPeriod: document.getElementById("counterPeriod"),
   compareValue: document.getElementById("compareValue"),
+  dutyCycleMode: document.getElementById("dutyCycleMode"),
   clockDivision: document.getElementById("clockDivision"),
   dtgValue: document.getElementById("dtgValue"),
   targetFrequencyHz: document.getElementById("targetFrequencyHz"),
@@ -103,21 +359,23 @@ const elements = {
   pulseWidthUs: document.getElementById("pulseWidthUs"),
   pulseWidthMs: document.getElementById("pulseWidthMs"),
   dutyCycle: document.getElementById("dutyCycle"),
+  dutyCycleDetail: document.getElementById("dutyCycleDetail"),
   tdtsUs: document.getElementById("tdtsUs"),
   tdtsNs: document.getElementById("tdtsNs"),
   dtgBinary: document.getElementById("dtgBinary"),
   dtgBinarySplit: document.getElementById("dtgBinarySplit"),
+  dtgBranch: document.getElementById("dtgBranch"),
+  dtgFormula: document.getElementById("dtgFormula"),
   tdtgUs: document.getElementById("tdtgUs"),
   deadTimeUs: document.getElementById("deadTimeUs"),
   deadTimeDuty: document.getElementById("deadTimeDuty"),
-  dtg80Dec: document.getElementById("dtg80Dec"),
-  dtg80Bin: document.getElementById("dtg80Bin"),
-  dtg75Dec: document.getElementById("dtg75Dec"),
-  dtg75Bin: document.getElementById("dtg75Bin"),
-  dtg40Dec: document.getElementById("dtg40Dec"),
-  dtg40Bin: document.getElementById("dtg40Bin"),
-  dtg50Dec: document.getElementById("dtg50Dec"),
-  dtg50Bin: document.getElementById("dtg50Bin"),
+  dtgRawDec: document.getElementById("dtgRawDec"),
+  dtgRawBin: document.getElementById("dtgRawBin"),
+  dtgPrefixDec: document.getElementById("dtgPrefixDec"),
+  dtgPrefixBin: document.getElementById("dtgPrefixBin"),
+  dtgActiveLabel: document.getElementById("dtgActiveLabel"),
+  dtgActiveDec: document.getElementById("dtgActiveDec"),
+  dtgActiveBin: document.getElementById("dtgActiveBin"),
   generatedSnippet: document.getElementById("generatedSnippet"),
   snippetMeta: document.getElementById("snippetMeta"),
 };
@@ -127,8 +385,9 @@ let statusMessage = null;
 function init() {
   populatePresetSelect();
   restoreState();
-  bindEvents();
+  populateClockProfiles(getSelectedPreset(), elements.clockProfile.value);
   updatePresetSummary();
+  bindEvents();
   calculate();
 }
 
@@ -139,9 +398,7 @@ function populatePresetSelect() {
     group.items.forEach((preset) => {
       const option = document.createElement("option");
       option.value = preset.id;
-      option.textContent = preset.apbClockMhz == null
-        ? preset.name
-        : `${preset.name} / ${preset.apbClockMhz} MHz`;
+      option.textContent = preset.name;
       if (preset.id === DEFAULT_STATE.chipPreset) {
         option.selected = true;
       }
@@ -151,9 +408,51 @@ function populatePresetSelect() {
   });
 }
 
+function getSelectedPreset() {
+  return PRESET_MAP.get(elements.chipPreset.value) ?? PRESET_MAP.get("custom");
+}
+
+function getCurrentClockProfiles(preset = getSelectedPreset()) {
+  return preset.clockProfiles ?? [manualClockProfile()];
+}
+
+function getDefaultClockProfileId(profiles) {
+  return profiles.find((profile) => profile.isDefault)?.id ?? profiles[0]?.id ?? "manual";
+}
+
+function populateClockProfiles(preset, preferredId = "") {
+  const profiles = getCurrentClockProfiles(preset);
+  elements.clockProfile.innerHTML = "";
+
+  profiles.forEach((profile) => {
+    const option = document.createElement("option");
+    option.value = profile.id;
+    option.textContent = profile.label;
+    elements.clockProfile.append(option);
+  });
+
+  const selectedId = profiles.some((profile) => profile.id === preferredId)
+    ? preferredId
+    : getDefaultClockProfileId(profiles);
+  elements.clockProfile.value = selectedId;
+}
+
+function getSelectedClockProfile() {
+  const profiles = getCurrentClockProfiles();
+  return profiles.find((profile) => profile.id === elements.clockProfile.value) ?? profiles[0];
+}
+
+function applyClockProfileSelection() {
+  const profile = getSelectedClockProfile();
+  if (profile && profile.apbClockMhz != null) {
+    elements.apbClockMhz.value = String(profile.apbClockMhz);
+  }
+}
+
 function bindEvents() {
   elements.chipPreset.addEventListener("change", handlePresetChange);
-  elements.apbClockMhz.addEventListener("input", syncPresetWithClock);
+  elements.clockProfile.addEventListener("change", handleClockProfileChange);
+  elements.apbClockMhz.addEventListener("input", syncClockProfileWithInput);
   elements.applyTargetButton.addEventListener("click", applyTargetFrequency);
   elements.resetButton.addEventListener("click", resetToDefaults);
   elements.copySnippetButton.addEventListener("click", copySnippet);
@@ -163,53 +462,56 @@ function bindEvents() {
     "prescaler",
     "counterPeriod",
     "compareValue",
+    "dutyCycleMode",
     "clockDivision",
     "dtgValue",
     "targetFrequencyHz",
   ].forEach((key) => {
-    elements[key].addEventListener("input", calculate);
-    elements[key].addEventListener("change", calculate);
+    elements[key].addEventListener("input", clearStatusAndCalculate);
+    elements[key].addEventListener("change", clearStatusAndCalculate);
   });
 }
 
-function getSelectedPreset() {
-  return PRESET_MAP.get(elements.chipPreset.value) ?? PRESET_MAP.get("custom");
+function clearStatusAndCalculate() {
+  statusMessage = null;
+  calculate();
 }
 
 function handlePresetChange() {
   const preset = getSelectedPreset();
-  if (preset.apbClockMhz != null) {
-    elements.apbClockMhz.value = preset.apbClockMhz;
-  }
+  populateClockProfiles(preset);
+  applyClockProfileSelection();
   updatePresetSummary();
   statusMessage = null;
   calculate();
 }
 
-function syncPresetWithClock() {
-  const preset = getSelectedPreset();
-  if (preset.apbClockMhz == null) {
-    updatePresetSummary();
-    calculate();
-    return;
-  }
-
-  const currentClock = Number(elements.apbClockMhz.value);
-  if (currentClock !== preset.apbClockMhz) {
-    elements.chipPreset.value = "custom";
-  }
+function handleClockProfileChange() {
+  applyClockProfileSelection();
   updatePresetSummary();
+  statusMessage = null;
+  calculate();
+}
+
+function syncClockProfileWithInput() {
+  const currentClock = Number(elements.apbClockMhz.value);
+  const profiles = getCurrentClockProfiles();
+  const matchedProfile = profiles.find((profile) => profile.apbClockMhz === currentClock);
+  elements.clockProfile.value = matchedProfile ? matchedProfile.id : "manual";
+  updatePresetSummary();
+  statusMessage = null;
   calculate();
 }
 
 function updatePresetSummary() {
   const preset = getSelectedPreset();
+  const profile = getSelectedClockProfile();
   elements.currentPresetLabel.textContent = preset.name;
   elements.presetFamily.textContent = preset.family;
   elements.presetBitsHint.textContent = preset.bitsHint;
-  elements.presetClockHint.textContent = preset.apbClockMhz == null
-    ? "建议 TIMxCLK 起点：手工输入"
-    : `建议 TIMxCLK 起点：${preset.apbClockMhz} MHz`;
+  elements.presetClockHint.textContent = profile.apbClockMhz == null
+    ? `当前时钟来源：${profile.label}`
+    : `当前时钟来源：${profile.label}`;
   elements.presetNote.textContent = preset.note;
 }
 
@@ -271,6 +573,69 @@ function renderMessages(messages) {
   });
 }
 
+function getDutyModeConfig(counterPeriod, compareValue) {
+  const hardwareDuty = counterPeriod > 0 ? compareValue / counterPeriod * 100 : Number.NaN;
+  const legacyDuty = counterPeriod === 1 ? Number.NaN : compareValue / (counterPeriod - 1) * 100;
+  const mode = elements.dutyCycleMode.value;
+
+  return {
+    mode,
+    hardwareDuty,
+    legacyDuty,
+    displayedDuty: mode === "hardware" ? hardwareDuty : legacyDuty,
+    compareLimit: mode === "hardware" ? counterPeriod : Math.max(counterPeriod - 1, 0),
+  };
+}
+
+function getDtgDecode(dtgValue) {
+  if (dtgValue < 128) {
+    return {
+      branch: "0xxxxxxx",
+      prefixDec: 0,
+      prefixBin: "0",
+      activeLabel: "DTG[6:0]",
+      activeDec: dtgValue,
+      activeBin: padBinary(dtgValue, 7),
+      formula: "DT = DTG[6:0] × Tdtg",
+    };
+  }
+  if (dtgValue < 192) {
+    const activeDec = dtgValue % 64;
+    return {
+      branch: "10xxxxxx",
+      prefixDec: 2,
+      prefixBin: "10",
+      activeLabel: "DTG[5:0]",
+      activeDec,
+      activeBin: padBinary(activeDec, 6),
+      formula: "DT = (64 + DTG[5:0]) × 2 × Tdtg",
+    };
+  }
+  if (dtgValue < 224) {
+    const activeDec = dtgValue % 32;
+    return {
+      branch: "110xxxxx",
+      prefixDec: 6,
+      prefixBin: "110",
+      activeLabel: "DTG[4:0]",
+      activeDec,
+      activeBin: padBinary(activeDec, 5),
+      formula: "DT = (32 + DTG[4:0]) × 8 × Tdtg",
+    };
+  }
+
+  const activeDec = dtgValue % 32;
+  return {
+    branch: "111xxxxx",
+    prefixDec: 7,
+    prefixBin: "111",
+    activeLabel: "DTG[4:0]",
+    activeDec,
+    activeBin: padBinary(activeDec, 5),
+    formula: "DT = (32 + DTG[4:0]) × 16 × Tdtg",
+  };
+}
+
 function calculate() {
   const apbClockMhz = readNumber(elements.apbClockMhz);
   const timerBits = readInt(elements.timerBits);
@@ -283,6 +648,7 @@ function calculate() {
   const registerMax = (2 ** timerBits) - 1;
   const inputValueMax = registerMax + 1;
   const baseMessages = [];
+  const dutyConfig = getDutyModeConfig(counterPeriod, compareValue);
 
   if (!(apbClockMhz > 0)) {
     baseMessages.push({ type: "error", text: "TIMxCLK / APB 定时器时钟必须大于 0 MHz。" });
@@ -308,11 +674,16 @@ function calculate() {
   if (compareValue > registerMax) {
     baseMessages.push({ type: "warn", text: `CCR 超出 ${timerBits} 位寄存器最大值 ${registerMax}。` });
   }
-  if (compareValue > Math.max(counterPeriod - 1, 0)) {
-    baseMessages.push({ type: "warn", text: "CCR 大于 ARR 寄存器值，PWM 输出通常不建议这样配置。" });
+  if (compareValue > dutyConfig.compareLimit) {
+    baseMessages.push({
+      type: "warn",
+      text: dutyConfig.mode === "hardware"
+        ? "当前为硬件口径：CCR 大于 ARR + 1，输出将超过标准 PWM 100% 范围。"
+        : "当前为 Excel 口径：CCR 大于 ARR 寄存器值，PWM 输出通常不建议这样配置。",
+    });
   }
-  if (counterPeriod === 1) {
-    baseMessages.push({ type: "warn", text: "Counter Period 为 1 时，占空比公式分母为 0，页面将不显示占空比。" });
+  if (counterPeriod === 1 && dutyConfig.mode === "legacy") {
+    baseMessages.push({ type: "warn", text: "Counter Period 为 1 时，Excel 口径分母为 0，页面将不显示该口径占空比。" });
   }
 
   const allMessages = buildMessages(baseMessages);
@@ -329,6 +700,7 @@ function calculate() {
       apbClockMhz: null,
       dutyCycle: null,
       timerBits,
+      clockProfileLabel: "",
     });
     saveState();
     return;
@@ -347,32 +719,23 @@ function calculate() {
   const frequencyHz = 1 / periodS;
   const pulseWidthUs = compareValue * tickTimeUs;
   const pulseWidthMs = pulseWidthUs / 1000;
-  const dutyCycle = counterPeriod === 1 ? Number.NaN : compareValue / (counterPeriod - 1) * 100;
   const tdtsUs = 1 / (apbClockMhz / clockDivision);
   const tdtsNs = tdtsUs * 1000;
+  const dtg = getDtgDecode(dtgValue);
 
-  const dtg80Dec = dtgValue;
-  const dtg80Bin = padBinary(dtg80Dec, 8);
-  const dtg75Dec = Math.floor(dtgValue / 32);
-  const dtg75Bin = padBinary(dtg75Dec, 3);
-  const dtg40Dec = dtgValue % 32;
-  const dtg40Bin = padBinary(dtg40Dec, 5);
-  const dtg50Dec = dtgValue % 64;
-  const dtg50Bin = padBinary(dtg50Dec, 6);
-
-  const tdtgUs = dtg75Dec < 4
+  const tdtgUs = dtg.branch === "0xxxxxxx"
     ? tdtsUs
-    : dtg75Dec < 6
+    : dtg.branch === "10xxxxxx"
       ? 2 * tdtsUs
-      : dtg75Dec === 6
+      : dtg.branch === "110xxxxx"
         ? 8 * tdtsUs
         : 16 * tdtsUs;
 
-  const deadTimeUs = dtg75Dec < 4
+  const deadTimeUs = dtg.branch === "0xxxxxxx"
     ? dtgValue * tdtgUs
-    : dtg75Dec < 6
-      ? (64 + dtg50Dec) * tdtgUs
-      : (32 + dtg40Dec) * tdtgUs;
+    : dtg.branch === "10xxxxxx"
+      ? (64 + dtg.activeDec) * tdtgUs
+      : (32 + dtg.activeDec) * tdtgUs;
 
   const deadTimeDuty = deadTimeUs / periodUs * 100;
 
@@ -387,22 +750,26 @@ function calculate() {
   elements.frequencyKhz.textContent = `${formatNumber(frequencyKhz, 8)} kHz / ${formatNumber(frequencyMhz, 8)} MHz`;
   elements.pulseWidthUs.textContent = `${formatNumber(pulseWidthUs, 8)} μs`;
   elements.pulseWidthMs.textContent = `${formatNumber(pulseWidthMs, 8)} ms`;
-  elements.dutyCycle.textContent = `${formatNumber(dutyCycle, 8)} %`;
+  elements.dutyCycle.textContent = `${formatNumber(dutyConfig.displayedDuty, 8)} %`;
+  elements.dutyCycleDetail.textContent = dutyConfig.mode === "hardware"
+    ? `硬件准确：CCR / (ARR + 1)；Excel 口径 ${formatNumber(dutyConfig.legacyDuty, 8)} %`
+    : `Excel 口径：CCR / ARR；硬件准确 ${formatNumber(dutyConfig.hardwareDuty, 8)} %`;
   elements.tdtsUs.textContent = `${formatNumber(tdtsUs, 8)} μs`;
   elements.tdtsNs.textContent = `${formatNumber(tdtsNs, 8)} ns`;
-  elements.dtgBinary.textContent = dtg80Bin;
-  elements.dtgBinarySplit.textContent = `[7:5] ${dtg75Bin} / [4:0] ${dtg40Bin}`;
+  elements.dtgBinary.textContent = padBinary(dtgValue, 8);
+  elements.dtgBinarySplit.textContent = `前缀 ${dtg.prefixBin} / 有效位 ${dtg.activeBin}`;
+  elements.dtgBranch.textContent = dtg.branch;
+  elements.dtgFormula.textContent = dtg.formula;
   elements.tdtgUs.textContent = formatNumber(tdtgUs, 8);
   elements.deadTimeUs.textContent = `${formatNumber(deadTimeUs, 8)} μs`;
   elements.deadTimeDuty.textContent = `${formatNumber(deadTimeDuty, 8)} % of period`;
-  elements.dtg80Dec.textContent = dtg80Dec;
-  elements.dtg80Bin.textContent = dtg80Bin;
-  elements.dtg75Dec.textContent = dtg75Dec;
-  elements.dtg75Bin.textContent = dtg75Bin;
-  elements.dtg40Dec.textContent = dtg40Dec;
-  elements.dtg40Bin.textContent = dtg40Bin;
-  elements.dtg50Dec.textContent = dtg50Dec;
-  elements.dtg50Bin.textContent = dtg50Bin;
+  elements.dtgRawDec.textContent = dtgValue;
+  elements.dtgRawBin.textContent = padBinary(dtgValue, 8);
+  elements.dtgPrefixDec.textContent = dtg.prefixDec;
+  elements.dtgPrefixBin.textContent = dtg.prefixBin;
+  elements.dtgActiveLabel.textContent = dtg.activeLabel;
+  elements.dtgActiveDec.textContent = dtg.activeDec;
+  elements.dtgActiveBin.textContent = dtg.activeBin;
 
   updateSnippet({
     pscRegister,
@@ -410,10 +777,11 @@ function calculate() {
     compareValue,
     clockDivision,
     apbClockMhz,
-    dutyCycle,
+    dutyCycle: dutyConfig.displayedDuty,
     timerBits,
     dtgValue,
-    targetFrequencyHz: readNumber(elements.targetFrequencyHz),
+    clockProfileLabel: getSelectedClockProfile().label,
+    dutyModeLabel: dutyConfig.mode === "hardware" ? "硬件准确" : "Excel legacy",
   });
   saveState();
 }
@@ -432,24 +800,26 @@ function fillFallback() {
     "pulseWidthUs",
     "pulseWidthMs",
     "dutyCycle",
+    "dutyCycleDetail",
     "tdtsUs",
     "tdtsNs",
     "dtgBinary",
     "dtgBinarySplit",
+    "dtgBranch",
+    "dtgFormula",
     "tdtgUs",
     "deadTimeUs",
     "deadTimeDuty",
-    "dtg80Dec",
-    "dtg80Bin",
-    "dtg75Dec",
-    "dtg75Bin",
-    "dtg40Dec",
-    "dtg40Bin",
-    "dtg50Dec",
-    "dtg50Bin",
+    "dtgRawDec",
+    "dtgRawBin",
+    "dtgPrefixDec",
+    "dtgPrefixBin",
+    "dtgActiveDec",
+    "dtgActiveBin",
   ].forEach((key) => {
     elements[key].textContent = "-";
   });
+  elements.dtgActiveLabel.textContent = "当前有效字段";
 }
 
 function getClockDivisionConstant(clockDivision) {
@@ -469,7 +839,8 @@ function updateSnippet(values) {
 
   const selectedPreset = getSelectedPreset();
   const snippet = [
-    `// ${selectedPreset.name} | TIMxCLK = ${formatNumber(values.apbClockMhz)} MHz`,
+    `// ${selectedPreset.name} | ${values.clockProfileLabel} | TIMxCLK = ${formatNumber(values.apbClockMhz)} MHz`,
+    `// Duty mode: ${values.dutyModeLabel}`,
     "TIM_HandleTypeDef htimx;",
     "TIM_OC_InitTypeDef sConfigOC = {0};",
     "",
@@ -484,7 +855,7 @@ function updateSnippet(values) {
   ].join("\n");
 
   elements.generatedSnippet.textContent = snippet;
-  elements.snippetMeta.textContent = `寄存器位宽 ${values.timerBits} bit | 预估占空比 ${formatNumber(values.dutyCycle, 6)} %`;
+  elements.snippetMeta.textContent = `寄存器位宽 ${values.timerBits} bit | 当前占空比 ${formatNumber(values.dutyCycle, 6)} %`;
 }
 
 async function copySnippet() {
@@ -508,9 +879,9 @@ function applyTargetFrequency() {
   const targetFrequencyHz = readNumber(elements.targetFrequencyHz);
   const apbClockMhz = readNumber(elements.apbClockMhz);
   const timerBits = readInt(elements.timerBits);
-  const prescaler = readInt(elements.prescaler);
   const counterPeriod = readInt(elements.counterPeriod);
   const compareValue = readInt(elements.compareValue);
+  const dutyMode = elements.dutyCycleMode.value;
 
   if (!(targetFrequencyHz > 0) || !(apbClockMhz > 0)) {
     statusMessage = { type: "warn", text: "请先输入合法的 TIMxCLK 和目标频率。" };
@@ -562,10 +933,16 @@ function applyTargetFrequency() {
     return;
   }
 
-  const dutyRatio = counterPeriod > 1
-    ? clamp(compareValue / Math.max(counterPeriod - 1, 1), 0, 1)
-    : 0;
-  const newCompareValue = clamp(Math.round(dutyRatio * Math.max(best.counterPeriod - 1, 0)), 0, registerMax);
+  const dutyRatio = dutyMode === "hardware"
+    ? clamp(compareValue / Math.max(counterPeriod, 1), 0, 1)
+    : clamp(compareValue / Math.max(counterPeriod - 1, 1), 0, 1);
+  const compareScale = dutyMode === "hardware"
+    ? best.counterPeriod
+    : Math.max(best.counterPeriod - 1, 0);
+  const compareCap = dutyMode === "hardware"
+    ? best.counterPeriod
+    : Math.max(best.counterPeriod - 1, 0);
+  const newCompareValue = clamp(Math.round(dutyRatio * compareScale), 0, Math.min(compareCap, registerMax));
 
   elements.prescaler.value = String(best.prescaler);
   elements.counterPeriod.value = String(best.counterPeriod);
@@ -579,11 +956,11 @@ function applyTargetFrequency() {
 }
 
 function resetToDefaults() {
-  Object.entries(DEFAULT_STATE).forEach(([key, value]) => {
-    elements[key].value = value;
-  });
-  statusMessage = { type: "info", text: "已恢复为默认参数。"}; 
+  resetInputs(DEFAULT_STATE);
+  populateClockProfiles(getSelectedPreset(), DEFAULT_STATE.clockProfile);
+  applyClockProfileSelection();
   updatePresetSummary();
+  statusMessage = { type: "info", text: "已恢复为默认参数。" };
   calculate();
 }
 
