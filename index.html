@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>STM32 定时器计算器</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="container">
+    <header class="hero">
+      <div>
+        <p class="eyebrow">STM32 Timer Tool</p>
+        <h1>STM32 定时器计算器</h1>
+        <p class="subtitle">
+          基于 `STM32Calculator.xlsx` 重做为网页，覆盖定时器基础参数、PWM 占空比和高级定时器死区时间计算。
+        </p>
+      </div>
+      <div class="chip">
+        <span>工作簿默认值已导入</span>
+        <strong id="lastPresetLabel">STM32F103 / 72 MHz</strong>
+      </div>
+    </header>
+
+    <section class="panel">
+      <div class="panel-title">
+        <h2>设计输入</h2>
+        <p>输入值会实时计算。芯片预设只会回填 APB 定时器时钟。</p>
+      </div>
+      <div class="grid input-grid">
+        <label class="field">
+          <span>芯片预设</span>
+          <select id="chipPreset"></select>
+        </label>
+        <label class="field">
+          <span>外设总线时钟 APB (MHz)</span>
+          <input id="apbClockMhz" type="number" min="0.000001" step="0.1" value="72">
+        </label>
+        <label class="field">
+          <span>寄存器位宽</span>
+          <select id="timerBits">
+            <option value="16">16 bit</option>
+            <option value="32">32 bit</option>
+          </select>
+        </label>
+        <label class="field">
+          <span>预分频系数 Prescaler</span>
+          <input id="prescaler" type="number" min="1" step="1" value="720">
+        </label>
+        <label class="field">
+          <span>计数周期 ARR + 1</span>
+          <input id="counterPeriod" type="number" min="1" step="1" value="1000">
+        </label>
+        <label class="field">
+          <span>比较值 CCR</span>
+          <input id="compareValue" type="number" min="0" step="1" value="500">
+        </label>
+        <label class="field">
+          <span>CKD 分频</span>
+          <select id="clockDivision">
+            <option value="1">1</option>
+            <option value="2">2</option>
+            <option value="4" selected>4</option>
+          </select>
+        </label>
+        <label class="field">
+          <span>DTG[7:0] 十进制</span>
+          <input id="dtgValue" type="number" min="0" max="255" step="1" value="255">
+        </label>
+      </div>
+      <div id="messages" class="messages" aria-live="polite"></div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-title">
+        <h2>寄存器填值</h2>
+        <p>这里直接给出更接近代码与 CubeMX 的寄存器值。</p>
+      </div>
+      <div class="grid result-grid compact">
+        <article class="card">
+          <span class="label">PSC 寄存器值</span>
+          <strong id="pscRegister">-</strong>
+          <small>等于 Prescaler - 1</small>
+        </article>
+        <article class="card">
+          <span class="label">ARR 寄存器值</span>
+          <strong id="arrRegister">-</strong>
+          <small>等于 Counter Period - 1</small>
+        </article>
+        <article class="card">
+          <span class="label">最大寄存器值</span>
+          <strong id="registerMax">-</strong>
+          <small>由寄存器位宽决定</small>
+        </article>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-title">
+        <h2>基础计算结果</h2>
+        <p>与原工作簿保持一致，单位已拆开显示，便于固件调参。</p>
+      </div>
+      <div class="grid result-grid">
+        <article class="card">
+          <span class="label">定时器时钟频率</span>
+          <strong id="timerClockMhz">-</strong>
+          <small id="timerClockHz">-</small>
+        </article>
+        <article class="card">
+          <span class="label">单次计数时间</span>
+          <strong id="tickTimeUs">-</strong>
+          <small>μs</small>
+        </article>
+        <article class="card">
+          <span class="label">输出周期</span>
+          <strong id="periodUs">-</strong>
+          <small id="periodMs">-</small>
+        </article>
+        <article class="card">
+          <span class="label">输出频率</span>
+          <strong id="frequencyHz">-</strong>
+          <small id="frequencyKhz">-</small>
+        </article>
+        <article class="card">
+          <span class="label">占空比</span>
+          <strong id="dutyCycle">-</strong>
+          <small>采用 Excel 原公式：CCR / ARR × 100%</small>
+        </article>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-title">
+        <h2>高级定时器死区时间</h2>
+        <p>死区时间计算沿用工作簿逻辑，并展示 DTG 分解结果。</p>
+      </div>
+      <div class="grid result-grid">
+        <article class="card">
+          <span class="label">TDTS</span>
+          <strong id="tdtsUs">-</strong>
+          <small id="tdtsNs">-</small>
+        </article>
+        <article class="card">
+          <span class="label">DTG 二进制</span>
+          <strong id="dtgBinary">-</strong>
+          <small id="dtgBinarySplit">-</small>
+        </article>
+        <article class="card">
+          <span class="label">步长 Tdtg</span>
+          <strong id="tdtgUs">-</strong>
+          <small>μs</small>
+        </article>
+        <article class="card">
+          <span class="label">死区时间 DT</span>
+          <strong id="deadTimeUs">-</strong>
+          <small id="deadTimeDuty">-</small>
+        </article>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>字段</th>
+              <th>十进制</th>
+              <th>二进制</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>DTG[7:0]</td>
+              <td id="dtg80Dec">-</td>
+              <td id="dtg80Bin">-</td>
+            </tr>
+            <tr>
+              <td>DTG[7:5]</td>
+              <td id="dtg75Dec">-</td>
+              <td id="dtg75Bin">-</td>
+            </tr>
+            <tr>
+              <td>DTG[4:0]</td>
+              <td id="dtg40Dec">-</td>
+              <td id="dtg40Bin">-</td>
+            </tr>
+            <tr>
+              <td>DTG[5:0]</td>
+              <td id="dtg50Dec">-</td>
+              <td id="dtg50Bin">-</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="panel notes">
+      <div class="panel-title">
+        <h2>说明</h2>
+      </div>
+      <ul>
+        <li>原表格中 “TIM_Period / TIM_Prescaler” 备注位置存在对调，这里改为直接显示 `PSC` 与 `ARR` 寄存器值。</li>
+        <li>芯片预设仅用于快速回填常见 APB 定时器时钟，仍可手动修改为实际工程值。</li>
+        <li>占空比说明保留 Excel 原计算口径，以便网页结果与工作簿一致。</li>
+      </ul>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
