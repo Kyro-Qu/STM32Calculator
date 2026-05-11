@@ -4,6 +4,10 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="description" content="STM32 定时器计算器：支持 TIMxCLK、PSC、ARR、CCR、PWM 占空比、死区时间、目标频率反推和多系列 STM32 预设。">
+  <meta property="og:title" content="STM32 定时器计算器">
+  <meta property="og:description" content="支持 TIMxCLK、PSC、ARR、CCR、PWM 占空比、死区时间、目标频率反推和多系列 STM32 预设。">
+  <meta property="og:type" content="website">
+  <meta name="theme-color" content="#0b1020">
   <title>STM32 定时器计算器</title>
   <link rel="stylesheet" href="style.css">
 </head>
@@ -187,7 +191,7 @@
           <small id="dtgFormula">-</small>
         </article>
         <article class="card">
-          <span class="label">步长 Tdtg</span>
+          <span id="dtgStepLabel" class="label">步长 Tdtg</span>
           <strong id="tdtgUs">-</strong>
           <small>μs</small>
         </article>
@@ -195,6 +199,11 @@
           <span class="label">死区时间 DT</span>
           <strong id="deadTimeUs">-</strong>
           <small id="deadTimeDuty">-</small>
+        </article>
+        <article class="card">
+          <span class="label">死区时间 DT</span>
+          <strong id="deadTimeNs">-</strong>
+          <small>ns</small>
         </article>
       </div>
       <div class="table-wrap">

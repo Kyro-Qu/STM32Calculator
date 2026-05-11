@@ -1,4 +1,5 @@
 const STORAGE_KEY = "stm32-timer-calculator-state-v3";
+const LEGACY_STORAGE_KEY = "stm32-timer-calculator-state-v2";
 
 function manualClockProfile() {
   return { id: "manual", label: "手工输入", apbClockMhz: null };
@@ -366,9 +367,11 @@ const elements = {
   dtgBinarySplit: document.getElementById("dtgBinarySplit"),
   dtgBranch: document.getElementById("dtgBranch"),
   dtgFormula: document.getElementById("dtgFormula"),
+  dtgStepLabel: document.getElementById("dtgStepLabel"),
   tdtgUs: document.getElementById("tdtgUs"),
   deadTimeUs: document.getElementById("deadTimeUs"),
   deadTimeDuty: document.getElementById("deadTimeDuty"),
+  deadTimeNs: document.getElementById("deadTimeNs"),
   dtgRawDec: document.getElementById("dtgRawDec"),
   dtgRawBin: document.getElementById("dtgRawBin"),
   dtgPrefixDec: document.getElementById("dtgPrefixDec"),
@@ -384,8 +387,8 @@ let statusMessage = null;
 
 function init() {
   populatePresetSelect();
-  restoreState();
-  populateClockProfiles(getSelectedPreset(), elements.clockProfile.value);
+  const restoredState = restoreState();
+  populateClockProfiles(getSelectedPreset(), restoredState.clockProfile);
   updatePresetSummary();
   bindEvents();
   calculate();
@@ -497,7 +500,9 @@ function handleClockProfileChange() {
 function syncClockProfileWithInput() {
   const currentClock = Number(elements.apbClockMhz.value);
   const profiles = getCurrentClockProfiles();
-  const matchedProfile = profiles.find((profile) => profile.apbClockMhz === currentClock);
+  const matchedProfile = profiles.find((profile) =>
+    profile.apbClockMhz != null && Math.abs(profile.apbClockMhz - currentClock) < 1e-9
+  );
   elements.clockProfile.value = matchedProfile ? matchedProfile.id : "manual";
   updatePresetSummary();
   statusMessage = null;
@@ -686,6 +691,9 @@ function calculate() {
   if (counterPeriod === 1 && dutyConfig.mode === "legacy") {
     baseMessages.push({ type: "warn", text: "Counter Period 为 1 时，Excel 口径分母为 0，页面将不显示该口径占空比。" });
   }
+  if (counterPeriod === 1) {
+    baseMessages.push({ type: "info", text: "Counter Period = 1 表示 ARR = 0。硬件允许，但定时器会在每个计数时钟周期更新，这通常只用于极端高频场景。" });
+  }
 
   const allMessages = buildMessages(baseMessages);
   renderMessages(allMessages);
@@ -702,6 +710,7 @@ function calculate() {
       dutyCycle: null,
       timerBits,
       clockProfileLabel: "",
+      dutyModeLabel: "",
     });
     saveState();
     return;
@@ -739,6 +748,7 @@ function calculate() {
       : (32 + dtg.activeDec) * tdtgUs;
 
   const deadTimeDuty = deadTimeUs / periodUs * 100;
+  const deadTimeNs = deadTimeUs * 1000;
 
   elements.pscRegister.textContent = formatNumber(pscRegister, 0);
   elements.arrRegister.textContent = formatNumber(arrRegister, 0);
@@ -761,9 +771,11 @@ function calculate() {
   elements.dtgBinarySplit.textContent = `前缀 ${dtg.prefixBin} / 有效位 ${dtg.activeBin}`;
   elements.dtgBranch.textContent = dtg.branch;
   elements.dtgFormula.textContent = dtg.formula;
+  elements.dtgStepLabel.textContent = dtg.branch === "0xxxxxxx" ? "步长 Tdts" : "步长 Tdtg";
   elements.tdtgUs.textContent = formatNumber(tdtgUs, 8);
   elements.deadTimeUs.textContent = `${formatNumber(deadTimeUs, 8)} μs`;
   elements.deadTimeDuty.textContent = `${formatNumber(deadTimeDuty, 8)} % of period`;
+  elements.deadTimeNs.textContent = formatNumber(deadTimeNs, 8);
   elements.dtgRawDec.textContent = dtgValue;
   elements.dtgRawBin.textContent = padBinary(dtgValue, 8);
   elements.dtgPrefixDec.textContent = dtg.prefixDec;
@@ -808,9 +820,11 @@ function fillFallback() {
     "dtgBinarySplit",
     "dtgBranch",
     "dtgFormula",
+    "dtgStepLabel",
     "tdtgUs",
     "deadTimeUs",
     "deadTimeDuty",
+    "deadTimeNs",
     "dtgRawDec",
     "dtgRawBin",
     "dtgPrefixDec",
@@ -820,6 +834,7 @@ function fillFallback() {
   ].forEach((key) => {
     elements[key].textContent = "-";
   });
+  elements.dtgStepLabel.textContent = "步长 Tdtg";
   elements.dtgActiveLabel.textContent = "当前有效字段";
 }
 
@@ -977,18 +992,37 @@ function saveState() {
   }
 }
 
-function restoreState() {
+function loadStateFromStorage(key) {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) {
-      resetInputs(DEFAULT_STATE);
-      return;
-    }
-    const parsed = JSON.parse(raw);
-    resetInputs({ ...DEFAULT_STATE, ...parsed });
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : null;
   } catch (error) {
-    resetInputs(DEFAULT_STATE);
+    return null;
   }
+}
+
+function restoreState() {
+  const savedV3 = loadStateFromStorage(STORAGE_KEY);
+  const savedV2 = savedV3 ? null : loadStateFromStorage(LEGACY_STORAGE_KEY);
+  const restoredState = {
+    ...DEFAULT_STATE,
+    ...(savedV3 ?? savedV2 ?? {}),
+  };
+
+  resetInputs(restoredState);
+
+  if (savedV2 && !savedV3) {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(restoredState));
+      if (typeof localStorage.removeItem === "function") {
+        localStorage.removeItem(LEGACY_STORAGE_KEY);
+      }
+    } catch (error) {
+      // Ignore migration failures.
+    }
+  }
+
+  return restoredState;
 }
 
 function resetInputs(state) {
