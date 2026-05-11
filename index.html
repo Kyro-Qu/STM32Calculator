@@ -9,23 +9,25 @@
 <body>
   <main class="container">
     <header class="hero">
-      <div>
+      <div class="hero-copy">
         <p class="eyebrow">STM32 Timer Tool</p>
         <h1>STM32 定时器计算器</h1>
         <p class="subtitle">
-          基于 `STM32Calculator.xlsx` 重做为网页，覆盖定时器基础参数、PWM 占空比和高级定时器死区时间计算。
+          将原始 Excel 工具整理为浏览器版，保留定时器基础计算与死区时间逻辑，并补充常见 STM32 型号预设、目标频率反推和代码片段生成。
         </p>
       </div>
-      <div class="chip">
-        <span>工作簿默认值已导入</span>
-        <strong id="lastPresetLabel">STM32F103 / 72 MHz</strong>
-      </div>
+      <aside class="hero-card">
+        <span class="hero-card-title">当前预设</span>
+        <strong id="currentPresetLabel">STM32F103</strong>
+        <small id="presetClockHint">建议 TIMxCLK 起点：72 MHz</small>
+        <p id="presetNote" class="hero-note">预设只用于快速回填，最终请以工程实际 RCC / TIM 内核时钟为准。</p>
+      </aside>
     </header>
 
     <section class="panel">
       <div class="panel-title">
         <h2>设计输入</h2>
-        <p>输入值会实时计算。芯片预设只会回填 APB 定时器时钟。</p>
+        <p>预设只回填一个可编辑的 TIMxCLK 起点，不会锁定你的参数。</p>
       </div>
       <div class="grid input-grid">
         <label class="field">
@@ -33,7 +35,7 @@
           <select id="chipPreset"></select>
         </label>
         <label class="field">
-          <span>外设总线时钟 APB (MHz)</span>
+          <span>TIMxCLK / APB 定时器时钟 (MHz)</span>
           <input id="apbClockMhz" type="number" min="0.000001" step="0.1" value="72">
         </label>
         <label class="field">
@@ -68,13 +70,29 @@
           <input id="dtgValue" type="number" min="0" max="255" step="1" value="255">
         </label>
       </div>
+
+      <div class="helper-box">
+        <div class="helper-copy">
+          <h3>目标频率反推</h3>
+          <p>输入目标输出频率，页面会回填一组接近的 PSC / ARR，并尽量保持当前占空比。</p>
+        </div>
+        <div class="helper-actions">
+          <label class="field helper-field">
+            <span>目标频率 (Hz)</span>
+            <input id="targetFrequencyHz" type="number" min="0.000001" step="1" placeholder="例如 1000">
+          </label>
+          <button id="applyTargetButton" class="button primary" type="button">回填 PSC / ARR</button>
+          <button id="resetButton" class="button ghost" type="button">恢复默认值</button>
+        </div>
+      </div>
+
       <div id="messages" class="messages" aria-live="polite"></div>
     </section>
 
     <section class="panel">
       <div class="panel-title">
-        <h2>寄存器填值</h2>
-        <p>这里直接给出更接近代码与 CubeMX 的寄存器值。</p>
+        <h2>寄存器与预设摘要</h2>
+        <p>这里展示更贴近代码和 CubeMX 的关键参数。</p>
       </div>
       <div class="grid result-grid compact">
         <article class="card">
@@ -90,7 +108,12 @@
         <article class="card">
           <span class="label">最大寄存器值</span>
           <strong id="registerMax">-</strong>
-          <small>由寄存器位宽决定</small>
+          <small>由位宽推导</small>
+        </article>
+        <article class="card">
+          <span class="label">预设系列</span>
+          <strong id="presetFamily">-</strong>
+          <small id="presetBitsHint">-</small>
         </article>
       </div>
     </section>
@@ -98,7 +121,7 @@
     <section class="panel">
       <div class="panel-title">
         <h2>基础计算结果</h2>
-        <p>与原工作簿保持一致，单位已拆开显示，便于固件调参。</p>
+        <p>与原工作簿公式保持一致，并补充高电平时间等更实用的输出。</p>
       </div>
       <div class="grid result-grid">
         <article class="card">
@@ -122,9 +145,14 @@
           <small id="frequencyKhz">-</small>
         </article>
         <article class="card">
+          <span class="label">高电平时间</span>
+          <strong id="pulseWidthUs">-</strong>
+          <small id="pulseWidthMs">-</small>
+        </article>
+        <article class="card">
           <span class="label">占空比</span>
           <strong id="dutyCycle">-</strong>
-          <small>采用 Excel 原公式：CCR / ARR × 100%</small>
+          <small>保留 Excel 口径：CCR / ARR × 100%</small>
         </article>
       </div>
     </section>
@@ -132,7 +160,7 @@
     <section class="panel">
       <div class="panel-title">
         <h2>高级定时器死区时间</h2>
-        <p>死区时间计算沿用工作簿逻辑，并展示 DTG 分解结果。</p>
+        <p>死区时间计算沿用工作簿逻辑，并显示 DTG 拆分结果。</p>
       </div>
       <div class="grid result-grid">
         <article class="card">
@@ -191,14 +219,27 @@
       </div>
     </section>
 
+    <section class="panel">
+      <div class="panel-title">
+        <h2>代码片段</h2>
+        <p>用于快速复制到 CubeMX / HAL 初始化代码中。</p>
+      </div>
+      <div class="snippet-toolbar">
+        <span id="snippetMeta">-</span>
+        <button id="copySnippetButton" class="button primary" type="button">复制代码片段</button>
+      </div>
+      <pre class="snippet"><code id="generatedSnippet">-</code></pre>
+    </section>
+
     <section class="panel notes">
       <div class="panel-title">
         <h2>说明</h2>
       </div>
       <ul>
-        <li>原表格中 “TIM_Period / TIM_Prescaler” 备注位置存在对调，这里改为直接显示 `PSC` 与 `ARR` 寄存器值。</li>
-        <li>芯片预设仅用于快速回填常见 APB 定时器时钟，仍可手动修改为实际工程值。</li>
-        <li>占空比说明保留 Excel 原计算口径，以便网页结果与工作簿一致。</li>
+        <li>预设提供的是常见 TIMxCLK 起点，不是强制值；同一芯片在不同 RCC 配置下可能不同。</li>
+        <li>原表中 `TIM_Period / TIM_Prescaler` 备注位置有混淆，这里直接显示 `PSC` 与 `ARR` 寄存器值。</li>
+        <li>大多数通用 / 高级定时器是 16 位，少数如 `TIM2 / TIM5` 常见为 32 位，位宽请按实际外设选择。</li>
+        <li>页面会在本地自动保存最近一次输入，刷新后仍可继续使用。</li>
       </ul>
     </section>
   </main>
