@@ -453,6 +453,7 @@ function bindEvents() {
   elements.chipPreset.addEventListener("change", handlePresetChange);
   elements.clockProfile.addEventListener("change", handleClockProfileChange);
   elements.apbClockMhz.addEventListener("input", syncClockProfileWithInput);
+  elements.apbClockMhz.addEventListener("change", syncClockProfileWithInput);
   elements.applyTargetButton.addEventListener("click", applyTargetFrequency);
   elements.resetButton.addEventListener("click", resetToDefaults);
   elements.copySnippetButton.addEventListener("click", copySnippet);
@@ -596,7 +597,7 @@ function getDtgDecode(dtgValue) {
       activeLabel: "DTG[6:0]",
       activeDec: dtgValue,
       activeBin: padBinary(dtgValue, 7),
-      formula: "DT = DTG[6:0] × Tdtg",
+      formula: "DT = DTG[6:0] × Tdts",
     };
   }
   if (dtgValue < 192) {
