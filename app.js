@@ -320,9 +320,11 @@ const DEFAULT_STATE = {
   prescaler: "720",
   counterPeriod: "1000",
   compareValue: "500",
+  counterMode: "up",
   clockDivision: "4",
   dtgValue: "255",
   targetFrequencyHz: "",
+  targetDeadTimeUs: "",
   dutyCycleMode: "hardware",
 };
 
@@ -334,17 +336,43 @@ const elements = {
   prescaler: document.getElementById("prescaler"),
   counterPeriod: document.getElementById("counterPeriod"),
   compareValue: document.getElementById("compareValue"),
+  counterMode: document.getElementById("counterMode"),
   dutyCycleMode: document.getElementById("dutyCycleMode"),
   clockDivision: document.getElementById("clockDivision"),
   dtgValue: document.getElementById("dtgValue"),
   targetFrequencyHz: document.getElementById("targetFrequencyHz"),
+  targetDeadTimeUs: document.getElementById("targetDeadTimeUs"),
   applyTargetButton: document.getElementById("applyTargetButton"),
+  applyDeadTimeButton: document.getElementById("applyDeadTimeButton"),
   resetButton: document.getElementById("resetButton"),
   copySnippetButton: document.getElementById("copySnippetButton"),
   messages: document.getElementById("messages"),
   currentPresetLabel: document.getElementById("currentPresetLabel"),
   presetClockHint: document.getElementById("presetClockHint"),
   presetNote: document.getElementById("presetNote"),
+  heroClock: document.getElementById("heroClock"),
+  heroFrequency: document.getElementById("heroFrequency"),
+  heroDuty: document.getElementById("heroDuty"),
+  heroDeadTime: document.getElementById("heroDeadTime"),
+  overviewClock: document.getElementById("overviewClock"),
+  overviewFrequency: document.getElementById("overviewFrequency"),
+  overviewDuty: document.getElementById("overviewDuty"),
+  overviewDeadTime: document.getElementById("overviewDeadTime"),
+  overviewRegisters: document.getElementById("overviewRegisters"),
+  overviewProfile: document.getElementById("overviewProfile"),
+  flowClock: document.getElementById("flowClock"),
+  flowTick: document.getElementById("flowTick"),
+  flowPeriod: document.getElementById("flowPeriod"),
+  flowPulse: document.getElementById("flowPulse"),
+  targetFrequencyActual: document.getElementById("targetFrequencyActual"),
+  targetFrequencyError: document.getElementById("targetFrequencyError"),
+  targetFrequencyFit: document.getElementById("targetFrequencyFit"),
+  targetFrequencyHint: document.getElementById("targetFrequencyHint"),
+  reverseDtgValue: document.getElementById("reverseDtgValue"),
+  reverseDeadTimeActual: document.getElementById("reverseDeadTimeActual"),
+  reverseDeadTimeError: document.getElementById("reverseDeadTimeError"),
+  reverseDeadTimeBranch: document.getElementById("reverseDeadTimeBranch"),
+  targetDeadTimeHint: document.getElementById("targetDeadTimeHint"),
   presetFamily: document.getElementById("presetFamily"),
   presetBitsHint: document.getElementById("presetBitsHint"),
   pscRegister: document.getElementById("pscRegister"),
@@ -381,9 +409,17 @@ const elements = {
   dtgActiveBin: document.getElementById("dtgActiveBin"),
   generatedSnippet: document.getElementById("generatedSnippet"),
   snippetMeta: document.getElementById("snippetMeta"),
+  waveMode: document.getElementById("waveMode"),
+  wavePeriod: document.getElementById("wavePeriod"),
+  wavePulse: document.getElementById("wavePulse"),
+  waveDeadTime: document.getElementById("waveDeadTime"),
+  waveformPreview: document.getElementById("waveformPreview"),
+  waveHint: document.getElementById("waveHint"),
 };
 
 let statusMessage = null;
+let lastTargetFrequencyFit = null;
+let lastDeadTimeReverseFit = null;
 
 function init() {
   populatePresetSelect();
@@ -458,18 +494,25 @@ function bindEvents() {
   elements.apbClockMhz.addEventListener("input", syncClockProfileWithInput);
   elements.apbClockMhz.addEventListener("change", syncClockProfileWithInput);
   elements.applyTargetButton.addEventListener("click", applyTargetFrequency);
+  elements.applyDeadTimeButton.addEventListener("click", applyTargetDeadTime);
   elements.resetButton.addEventListener("click", resetToDefaults);
   elements.copySnippetButton.addEventListener("click", copySnippet);
+  elements.targetFrequencyHz.addEventListener("keydown", handleTargetFrequencyKeydown);
+  elements.targetDeadTimeUs.addEventListener("keydown", handleTargetDeadTimeKeydown);
+  elements.targetFrequencyHz.addEventListener("input", handleTargetFrequencyDraftChange);
+  elements.targetFrequencyHz.addEventListener("change", handleTargetFrequencyDraftChange);
+  elements.targetDeadTimeUs.addEventListener("input", handleTargetDeadTimeDraftChange);
+  elements.targetDeadTimeUs.addEventListener("change", handleTargetDeadTimeDraftChange);
 
   [
     "timerBits",
     "prescaler",
     "counterPeriod",
     "compareValue",
+    "counterMode",
     "dutyCycleMode",
     "clockDivision",
     "dtgValue",
-    "targetFrequencyHz",
   ].forEach((key) => {
     elements[key].addEventListener("input", clearStatusAndCalculate);
     elements[key].addEventListener("change", clearStatusAndCalculate);
@@ -477,7 +520,39 @@ function bindEvents() {
 }
 
 function clearStatusAndCalculate() {
+  clearTransientFeedback();
+  calculate();
+}
+
+function clearTransientFeedback() {
   statusMessage = null;
+  lastTargetFrequencyFit = null;
+  lastDeadTimeReverseFit = null;
+}
+
+function handleTargetFrequencyKeydown(event) {
+  if (event.key === "Enter") {
+    event.preventDefault();
+    applyTargetFrequency();
+  }
+}
+
+function handleTargetDeadTimeKeydown(event) {
+  if (event.key === "Enter") {
+    event.preventDefault();
+    applyTargetDeadTime();
+  }
+}
+
+function handleTargetFrequencyDraftChange() {
+  statusMessage = null;
+  lastTargetFrequencyFit = null;
+  calculate();
+}
+
+function handleTargetDeadTimeDraftChange() {
+  statusMessage = null;
+  lastDeadTimeReverseFit = null;
   calculate();
 }
 
@@ -486,14 +561,14 @@ function handlePresetChange() {
   populateClockProfiles(preset);
   applyClockProfileSelection();
   updatePresetSummary();
-  statusMessage = null;
+  clearTransientFeedback();
   calculate();
 }
 
 function handleClockProfileChange() {
   applyClockProfileSelection();
   updatePresetSummary();
-  statusMessage = null;
+  clearTransientFeedback();
   calculate();
 }
 
@@ -505,7 +580,7 @@ function syncClockProfileWithInput() {
   );
   elements.clockProfile.value = matchedProfile ? matchedProfile.id : "manual";
   updatePresetSummary();
-  statusMessage = null;
+  clearTransientFeedback();
   calculate();
 }
 
@@ -519,6 +594,78 @@ function updatePresetSummary() {
     ? `当前时钟来源：${profile.label}`
     : `当前时钟来源：${profile.label}`;
   elements.presetNote.textContent = preset.note;
+  elements.overviewProfile.textContent = profile.label;
+}
+
+function isCenterAlignedMode(counterMode = elements.counterMode.value) {
+  return counterMode.startsWith("center");
+}
+
+function getCounterModeLabel(counterMode = elements.counterMode.value) {
+  return {
+    up: "边沿对齐 / 向上计数",
+    center1: "中心对齐 1",
+    center2: "中心对齐 2",
+    center3: "中心对齐 3",
+  }[counterMode] ?? "边沿对齐 / 向上计数";
+}
+
+function getCounterModeConstant(counterMode = elements.counterMode.value) {
+  return {
+    up: "TIM_COUNTERMODE_UP",
+    center1: "TIM_COUNTERMODE_CENTERALIGNED1",
+    center2: "TIM_COUNTERMODE_CENTERALIGNED2",
+    center3: "TIM_COUNTERMODE_CENTERALIGNED3",
+  }[counterMode] ?? "TIM_COUNTERMODE_UP";
+}
+
+function getCounterModePeriodFactor(counterMode = elements.counterMode.value) {
+  return isCenterAlignedMode(counterMode) ? 2 : 1;
+}
+
+function getTdtsUs(apbClockMhz, clockDivision) {
+  return 1 / (apbClockMhz / clockDivision);
+}
+
+function getDtgTiming(dtgValue, tdtsUs) {
+  const dtg = getDtgDecode(dtgValue);
+  const tdtgUs = dtg.branch === "0xxxxxxx"
+    ? tdtsUs
+    : dtg.branch === "10xxxxxx"
+      ? 2 * tdtsUs
+      : dtg.branch === "110xxxxx"
+        ? 8 * tdtsUs
+        : 16 * tdtsUs;
+
+  const deadTimeUs = dtg.branch === "0xxxxxxx"
+    ? dtgValue * tdtgUs
+    : dtg.branch === "10xxxxxx"
+      ? (64 + dtg.activeDec) * tdtgUs
+      : (32 + dtg.activeDec) * tdtgUs;
+
+  return {
+    dtg,
+    tdtgUs,
+    deadTimeUs,
+    deadTimeNs: deadTimeUs * 1000,
+  };
+}
+
+function updateDashboardMetrics(values) {
+  elements.heroClock.textContent = `${formatNumber(values.timerClockMhz)} MHz`;
+  elements.heroFrequency.textContent = `${formatNumber(values.frequencyHz, 6)} Hz`;
+  elements.heroDuty.textContent = `${formatNumber(values.dutyCycle, 6)} %`;
+  elements.heroDeadTime.textContent = `${formatNumber(values.deadTimeUs, 6)} μs`;
+  elements.overviewClock.textContent = `${formatNumber(values.timerClockMhz)} MHz`;
+  elements.overviewFrequency.textContent = `${formatNumber(values.frequencyHz, 6)} Hz`;
+  elements.overviewDuty.textContent = `${formatNumber(values.dutyCycle, 6)} %`;
+  elements.overviewDeadTime.textContent = `${formatNumber(values.deadTimeUs, 6)} μs`;
+  elements.overviewRegisters.textContent = `PSC ${values.pscRegister} / ARR ${values.arrRegister}`;
+  elements.overviewProfile.textContent = `${values.clockProfileLabel} · ${values.counterModeLabel}`;
+  elements.flowClock.textContent = `${formatNumber(values.apbClockMhz, 4)} MHz`;
+  elements.flowTick.textContent = `${formatNumber(values.tickTimeUs, 8)} μs`;
+  elements.flowPeriod.textContent = `${formatNumber(values.periodUs, 8)} μs`;
+  elements.flowPulse.textContent = `${formatNumber(values.pulseWidthUs, 8)} μs`;
 }
 
 function readNumber(element) {
@@ -559,6 +706,132 @@ function formatNumber(value, maxFractionDigits = 6) {
     maximumFractionDigits: digits,
     useGrouping: false,
   });
+}
+
+function renderTargetFrequencyFeedback() {
+  if (!lastTargetFrequencyFit) {
+    elements.targetFrequencyActual.textContent = "-";
+    elements.targetFrequencyError.textContent = "-";
+    elements.targetFrequencyFit.textContent = "-";
+    elements.targetFrequencyHint.textContent = "在目标频率输入框按 Enter 也可以直接回填。";
+    return;
+  }
+
+  elements.targetFrequencyActual.textContent = `${formatNumber(lastTargetFrequencyFit.actualFrequency, 8)} Hz`;
+  elements.targetFrequencyError.textContent = `${formatNumber(lastTargetFrequencyFit.relativeError * 100, 8)} %`;
+  elements.targetFrequencyFit.textContent = `PSC ${lastTargetFrequencyFit.prescaler} / ARR ${lastTargetFrequencyFit.counterPeriod}`;
+  elements.targetFrequencyHint.textContent = `目标 ${formatNumber(lastTargetFrequencyFit.targetFrequencyHz, 8)} Hz，当前模式 ${lastTargetFrequencyFit.counterModeLabel}。`;
+}
+
+function renderDeadTimeReverseFeedback() {
+  if (!lastDeadTimeReverseFit) {
+    elements.reverseDtgValue.textContent = "-";
+    elements.reverseDeadTimeActual.textContent = "-";
+    elements.reverseDeadTimeError.textContent = "-";
+    elements.reverseDeadTimeBranch.textContent = "-";
+    elements.targetDeadTimeHint.textContent = "这个反推沿用当前页面的 DTG / Tdts 计算逻辑。";
+    return;
+  }
+
+  elements.reverseDtgValue.textContent = `${lastDeadTimeReverseFit.dtgValue} / 0b${padBinary(lastDeadTimeReverseFit.dtgValue, 8)}`;
+  elements.reverseDeadTimeActual.textContent = `${formatNumber(lastDeadTimeReverseFit.actualDeadTimeUs, 8)} μs`;
+  elements.reverseDeadTimeError.textContent = `${formatNumber(lastDeadTimeReverseFit.relativeError * 100, 8)} %`;
+  elements.reverseDeadTimeBranch.textContent = `${lastDeadTimeReverseFit.branch} · ${lastDeadTimeReverseFit.formula}`;
+  elements.targetDeadTimeHint.textContent = `目标 ${formatNumber(lastDeadTimeReverseFit.targetDeadTimeUs, 8)} μs，在当前 CKD / TIMxCLK 下找到最接近 DTG。`;
+}
+
+function renderWaveformPreview(values) {
+  if (!values) {
+    elements.waveMode.textContent = "-";
+    elements.wavePeriod.textContent = "-";
+    elements.wavePulse.textContent = "-";
+    elements.waveDeadTime.textContent = "-";
+    elements.waveHint.textContent = "预览按当前硬件 PWM 时序归一化显示；死区窗口用于提示切换留白，不代表驱动器传播延迟。";
+    elements.waveformPreview.innerHTML = "";
+    return;
+  }
+
+  const svgWidth = 960;
+  const svgHeight = 260;
+  const chartLeft = 88;
+  const chartRight = 900;
+  const chartWidth = chartRight - chartLeft;
+  const yHigh = 72;
+  const yLow = 128;
+  const yBaseline = 196;
+  const dutyRatio = clamp(values.hardwareDuty / 100, 0, 1);
+  const highStartRatio = values.isCenterAligned
+    ? (1 - dutyRatio) / 2
+    : 0;
+  const highEndRatio = values.isCenterAligned
+    ? (1 + dutyRatio) / 2
+    : dutyRatio;
+  const deadTimeRatio = values.periodUs > 0 ? clamp(values.deadTimeUs / values.periodUs, 0, 0.45) : 0;
+  const deadTimeWidth = deadTimeRatio * chartWidth;
+  const transitionRatios = [];
+
+  if (dutyRatio > 0 && highStartRatio > 0) {
+    transitionRatios.push(highStartRatio);
+  }
+  if (dutyRatio > 0 && dutyRatio < 1) {
+    transitionRatios.push(highEndRatio);
+  }
+
+  const highStartX = chartLeft + chartWidth * highStartRatio;
+  const highEndX = chartLeft + chartWidth * highEndRatio;
+  const lowStartPath = highStartRatio === 0
+    ? `M ${chartLeft} ${yHigh}`
+    : `M ${chartLeft} ${yLow} L ${highStartX} ${yLow} L ${highStartX} ${yHigh}`;
+  const highPath = dutyRatio === 0
+    ? `M ${chartLeft} ${yLow} L ${chartRight} ${yLow}`
+    : dutyRatio === 1
+      ? `M ${chartLeft} ${yHigh} L ${chartRight} ${yHigh}`
+      : `${lowStartPath} L ${highEndX} ${yHigh} L ${highEndX} ${yLow} L ${chartRight} ${yLow}`;
+
+  const gridLines = Array.from({ length: 11 }, (_, index) => {
+    const x = chartLeft + chartWidth * index / 10;
+    return `<line x1="${x}" y1="34" x2="${x}" y2="214" stroke="rgba(148,163,184,0.12)" stroke-dasharray="4 6" />`;
+  }).join("");
+
+  const deadBands = transitionRatios.map((ratio, index) => {
+    const x = chartLeft + chartWidth * ratio;
+    return `
+      <rect x="${x}" y="42" width="${Math.max(deadTimeWidth, 2)}" height="146" rx="8" fill="rgba(248, 113, 113, 0.16)" stroke="rgba(248, 113, 113, 0.4)" />
+      <text x="${x + Math.max(deadTimeWidth, 2) / 2}" y="204" fill="#fecaca" font-size="13" text-anchor="middle">DT${index + 1}</text>
+    `;
+  }).join("");
+
+  const centerMarker = values.isCenterAligned
+    ? `<line x1="${chartLeft + chartWidth / 2}" y1="34" x2="${chartLeft + chartWidth / 2}" y2="214" stroke="rgba(96,165,250,0.36)" stroke-dasharray="8 8" />`
+    : "";
+
+  elements.waveMode.textContent = values.counterModeLabel;
+  elements.wavePeriod.textContent = `${formatNumber(values.periodUs, 8)} μs`;
+  elements.wavePulse.textContent = `${formatNumber(values.pulseWidthUs, 8)} μs`;
+  elements.waveDeadTime.textContent = `${formatNumber(values.deadTimeUs, 8)} μs`;
+  elements.waveHint.textContent = values.isCenterAligned
+    ? "中心对齐模式下，一个完整周期包含上升与下降两个计数阶段，所以周期相对边沿对齐会翻倍。"
+    : "边沿对齐模式下，波形从周期起点开始计数；死区窗口按当前 DTG 归一化绘制。";
+
+  elements.waveformPreview.innerHTML = `
+    <rect x="0" y="0" width="${svgWidth}" height="${svgHeight}" rx="18" fill="rgba(5,12,24,0.28)"></rect>
+    ${gridLines}
+    ${centerMarker}
+    <text x="24" y="76" fill="#c7d6ec" font-size="15">PWM</text>
+    <text x="24" y="198" fill="#c7d6ec" font-size="15">Dead Time</text>
+    <line x1="${chartLeft}" y1="${yBaseline}" x2="${chartRight}" y2="${yBaseline}" stroke="rgba(148,163,184,0.24)" stroke-width="2" />
+    <path d="${highPath}" fill="none" stroke="url(#waveGradient)" stroke-width="8" stroke-linejoin="round" stroke-linecap="round" />
+    ${deadBands}
+    <text x="${chartLeft}" y="232" fill="#9fb0cc" font-size="13">0%</text>
+    <text x="${chartLeft + chartWidth / 2}" y="232" fill="#9fb0cc" font-size="13" text-anchor="middle">${values.isCenterAligned ? "周期中心" : "50%"}</text>
+    <text x="${chartRight}" y="232" fill="#9fb0cc" font-size="13" text-anchor="end">100%</text>
+    <defs>
+      <linearGradient id="waveGradient" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0%" stop-color="#22d3ee"></stop>
+        <stop offset="100%" stop-color="#60a5fa"></stop>
+      </linearGradient>
+    </defs>
+  `;
 }
 
 function buildMessages(baseMessages) {
@@ -648,6 +921,7 @@ function calculate() {
   const prescaler = readInt(elements.prescaler);
   const counterPeriod = readInt(elements.counterPeriod);
   const compareValue = readInt(elements.compareValue);
+  const counterMode = elements.counterMode.value;
   const clockDivision = readInt(elements.clockDivision);
   const dtgValue = readInt(elements.dtgValue);
 
@@ -697,6 +971,8 @@ function calculate() {
 
   const allMessages = buildMessages(baseMessages);
   renderMessages(allMessages);
+  renderTargetFrequencyFeedback();
+  renderDeadTimeReverseFeedback();
   elements.registerMax.textContent = formatNumber(registerMax, 0);
 
   if (baseMessages.some((item) => item.type === "error")) {
@@ -711,6 +987,7 @@ function calculate() {
       timerBits,
       clockProfileLabel: "",
       dutyModeLabel: "",
+      counterMode,
     });
     saveState();
     return;
@@ -721,34 +998,22 @@ function calculate() {
   const timerClockMhz = apbClockMhz / prescaler;
   const timerClockHz = timerClockMhz * 1_000_000;
   const tickTimeUs = 1 / timerClockMhz;
-  const periodUs = tickTimeUs * counterPeriod;
+  const periodFactor = getCounterModePeriodFactor(counterMode);
+  const periodUs = tickTimeUs * counterPeriod * periodFactor;
   const periodMs = periodUs / 1000;
   const periodS = periodMs / 1000;
   const frequencyMhz = 1 / periodUs;
   const frequencyKhz = 1 / periodMs;
   const frequencyHz = 1 / periodS;
-  const pulseWidthUs = compareValue * tickTimeUs;
+  const pulseWidthUs = compareValue * tickTimeUs * periodFactor;
   const pulseWidthMs = pulseWidthUs / 1000;
-  const tdtsUs = 1 / (apbClockMhz / clockDivision);
+  const tdtsUs = getTdtsUs(apbClockMhz, clockDivision);
   const tdtsNs = tdtsUs * 1000;
-  const dtg = getDtgDecode(dtgValue);
-
-  const tdtgUs = dtg.branch === "0xxxxxxx"
-    ? tdtsUs
-    : dtg.branch === "10xxxxxx"
-      ? 2 * tdtsUs
-      : dtg.branch === "110xxxxx"
-        ? 8 * tdtsUs
-        : 16 * tdtsUs;
-
-  const deadTimeUs = dtg.branch === "0xxxxxxx"
-    ? dtgValue * tdtgUs
-    : dtg.branch === "10xxxxxx"
-      ? (64 + dtg.activeDec) * tdtgUs
-      : (32 + dtg.activeDec) * tdtgUs;
-
+  const dtgTiming = getDtgTiming(dtgValue, tdtsUs);
+  const { dtg, tdtgUs, deadTimeUs, deadTimeNs } = dtgTiming;
   const deadTimeDuty = deadTimeUs / periodUs * 100;
-  const deadTimeNs = deadTimeUs * 1000;
+  const clockProfileLabel = getSelectedClockProfile().label;
+  const counterModeLabel = getCounterModeLabel(counterMode);
 
   elements.pscRegister.textContent = formatNumber(pscRegister, 0);
   elements.arrRegister.textContent = formatNumber(arrRegister, 0);
@@ -763,8 +1028,8 @@ function calculate() {
   elements.pulseWidthMs.textContent = `${formatNumber(pulseWidthMs, 8)} ms`;
   elements.dutyCycle.textContent = `${formatNumber(dutyConfig.displayedDuty, 8)} %`;
   elements.dutyCycleDetail.textContent = dutyConfig.mode === "hardware"
-    ? `硬件准确：CCR / (ARR + 1)；Excel 口径 ${formatNumber(dutyConfig.legacyDuty, 8)} %`
-    : `Excel 口径：CCR / ARR；硬件准确 ${formatNumber(dutyConfig.hardwareDuty, 8)} %`;
+    ? `硬件准确：CCR / (ARR + 1)；Excel 口径 ${formatNumber(dutyConfig.legacyDuty, 8)} %；${counterModeLabel}`
+    : `Excel 口径：CCR / ARR；硬件准确 ${formatNumber(dutyConfig.hardwareDuty, 8)} %；${counterModeLabel}`;
   elements.tdtsUs.textContent = `${formatNumber(tdtsUs, 8)} μs`;
   elements.tdtsNs.textContent = `${formatNumber(tdtsNs, 8)} ns`;
   elements.dtgBinary.textContent = padBinary(dtgValue, 8);
@@ -784,6 +1049,30 @@ function calculate() {
   elements.dtgActiveDec.textContent = dtg.activeDec;
   elements.dtgActiveBin.textContent = dtg.activeBin;
 
+  updateDashboardMetrics({
+    apbClockMhz,
+    timerClockMhz,
+    frequencyHz,
+    dutyCycle: dutyConfig.displayedDuty,
+    deadTimeUs,
+    pscRegister,
+    arrRegister,
+    clockProfileLabel,
+    counterModeLabel,
+    tickTimeUs,
+    periodUs,
+    pulseWidthUs,
+  });
+
+  renderWaveformPreview({
+    hardwareDuty: dutyConfig.hardwareDuty,
+    periodUs,
+    pulseWidthUs,
+    deadTimeUs,
+    counterModeLabel,
+    isCenterAligned: isCenterAlignedMode(counterMode),
+  });
+
   updateSnippet({
     pscRegister,
     arrRegister,
@@ -793,7 +1082,8 @@ function calculate() {
     dutyCycle: dutyConfig.displayedDuty,
     timerBits,
     dtgValue,
-    clockProfileLabel: getSelectedClockProfile().label,
+    clockProfileLabel,
+    counterMode,
     dutyModeLabel: dutyConfig.mode === "hardware" ? "硬件准确" : "Excel legacy",
   });
   saveState();
@@ -801,6 +1091,30 @@ function calculate() {
 
 function fillFallback() {
   [
+    "heroClock",
+    "heroFrequency",
+    "heroDuty",
+    "heroDeadTime",
+    "overviewClock",
+    "overviewFrequency",
+    "overviewDuty",
+    "overviewDeadTime",
+    "overviewRegisters",
+    "flowClock",
+    "flowTick",
+    "flowPeriod",
+    "flowPulse",
+    "targetFrequencyActual",
+    "targetFrequencyError",
+    "targetFrequencyFit",
+    "reverseDtgValue",
+    "reverseDeadTimeActual",
+    "reverseDeadTimeError",
+    "reverseDeadTimeBranch",
+    "waveMode",
+    "wavePeriod",
+    "wavePulse",
+    "waveDeadTime",
     "pscRegister",
     "arrRegister",
     "timerClockMhz",
@@ -836,6 +1150,9 @@ function fillFallback() {
   });
   elements.dtgStepLabel.textContent = "步长 Tdtg";
   elements.dtgActiveLabel.textContent = "当前有效字段";
+  elements.targetFrequencyHint.textContent = "在目标频率输入框按 Enter 也可以直接回填。";
+  elements.targetDeadTimeHint.textContent = "这个反推沿用当前页面的 DTG / Tdts 计算逻辑。";
+  renderWaveformPreview(null);
 }
 
 function getClockDivisionConstant(clockDivision) {
@@ -857,11 +1174,12 @@ function updateSnippet(values) {
   const snippet = [
     `// ${selectedPreset.name} | ${values.clockProfileLabel} | TIMxCLK = ${formatNumber(values.apbClockMhz)} MHz`,
     `// Duty mode: ${values.dutyModeLabel}`,
+    `// Counter mode: ${getCounterModeLabel(values.counterMode)}`,
     "TIM_HandleTypeDef htimx;",
     "TIM_OC_InitTypeDef sConfigOC = {0};",
     "",
     `htimx.Init.Prescaler = ${values.pscRegister};`,
-    "htimx.Init.CounterMode = TIM_COUNTERMODE_UP;",
+    `htimx.Init.CounterMode = ${getCounterModeConstant(values.counterMode)};`,
     `htimx.Init.Period = ${values.arrRegister};`,
     `htimx.Init.ClockDivision = ${getClockDivisionConstant(values.clockDivision)};`,
     "htimx.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;",
@@ -897,6 +1215,7 @@ function applyTargetFrequency() {
   const timerBits = readInt(elements.timerBits);
   const counterPeriod = readInt(elements.counterPeriod);
   const compareValue = readInt(elements.compareValue);
+  const counterMode = elements.counterMode.value;
   const dutyMode = elements.dutyCycleMode.value;
 
   if (!(targetFrequencyHz > 0) || !(apbClockMhz > 0)) {
@@ -906,7 +1225,7 @@ function applyTargetFrequency() {
   }
 
   const timerClockHz = apbClockMhz * 1_000_000;
-  const targetCounts = timerClockHz / targetFrequencyHz;
+  const targetCounts = timerClockHz / (targetFrequencyHz * getCounterModePeriodFactor(counterMode));
   const registerMax = (2 ** timerBits) - 1;
   const inputMax = registerMax + 1;
 
@@ -963,10 +1282,69 @@ function applyTargetFrequency() {
   elements.prescaler.value = String(best.prescaler);
   elements.counterPeriod.value = String(best.counterPeriod);
   elements.compareValue.value = String(newCompareValue);
+  lastTargetFrequencyFit = {
+    ...best,
+    targetFrequencyHz,
+    counterModeLabel: getCounterModeLabel(counterMode),
+  };
 
   statusMessage = {
     type: "info",
-    text: `已按目标频率 ${formatNumber(targetFrequencyHz, 6)} Hz 回填：Prescaler = ${best.prescaler}，Counter Period = ${best.counterPeriod}，实际频率约 ${formatNumber(best.actualFrequency, 6)} Hz。`,
+    text: `已按目标频率 ${formatNumber(targetFrequencyHz, 6)} Hz 回填：Prescaler = ${best.prescaler}，Counter Period = ${best.counterPeriod}，实际频率约 ${formatNumber(best.actualFrequency, 6)} Hz，相对误差 ${formatNumber(best.relativeError * 100, 8)} %。`,
+  };
+  calculate();
+}
+
+function applyTargetDeadTime() {
+  const targetDeadTimeUs = readNumber(elements.targetDeadTimeUs);
+  const apbClockMhz = readNumber(elements.apbClockMhz);
+  const clockDivision = readInt(elements.clockDivision);
+
+  if (!(targetDeadTimeUs >= 0) || !(apbClockMhz > 0) || ![1, 2, 4].includes(clockDivision)) {
+    statusMessage = { type: "warn", text: "请先输入合法的目标死区时间、TIMxCLK 和 CKD。" };
+    calculate();
+    return;
+  }
+
+  const tdtsUs = getTdtsUs(apbClockMhz, clockDivision);
+  let best = null;
+
+  for (let candidateDtg = 0; candidateDtg <= 255; candidateDtg += 1) {
+    const candidateTiming = getDtgTiming(candidateDtg, tdtsUs);
+    const absoluteError = Math.abs(candidateTiming.deadTimeUs - targetDeadTimeUs);
+    const relativeError = targetDeadTimeUs > 0 ? absoluteError / targetDeadTimeUs : 0;
+    const candidate = {
+      dtgValue: candidateDtg,
+      actualDeadTimeUs: candidateTiming.deadTimeUs,
+      absoluteError,
+      relativeError,
+      branch: candidateTiming.dtg.branch,
+      formula: candidateTiming.dtg.formula,
+    };
+
+    if (
+      best == null
+      || candidate.absoluteError < best.absoluteError
+      || (candidate.absoluteError === best.absoluteError && candidate.dtgValue < best.dtgValue)
+    ) {
+      best = candidate;
+    }
+  }
+
+  if (!best) {
+    statusMessage = { type: "warn", text: "未找到可用的 DTG 组合。" };
+    calculate();
+    return;
+  }
+
+  elements.dtgValue.value = String(best.dtgValue);
+  lastDeadTimeReverseFit = {
+    ...best,
+    targetDeadTimeUs,
+  };
+  statusMessage = {
+    type: "info",
+    text: `目标死区 ${formatNumber(targetDeadTimeUs, 8)} μs 已反推为 DTG = ${best.dtgValue}，实际死区约 ${formatNumber(best.actualDeadTimeUs, 8)} μs，相对误差 ${formatNumber(best.relativeError * 100, 8)} %。`,
   };
   calculate();
 }
@@ -976,6 +1354,7 @@ function resetToDefaults() {
   populateClockProfiles(getSelectedPreset(), DEFAULT_STATE.clockProfile);
   applyClockProfileSelection();
   updatePresetSummary();
+  clearTransientFeedback();
   statusMessage = { type: "info", text: "已恢复为默认参数。" };
   calculate();
 }

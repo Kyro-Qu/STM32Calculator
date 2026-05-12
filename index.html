@@ -17,89 +17,286 @@
       <div class="hero-copy">
         <p class="eyebrow">STM32 Timer Tool</p>
         <h1>STM32 定时器计算器</h1>
+        <p class="hero-summary">把时钟、寄存器和 PWM 结果放在同一屏里，少切换、少猜测，直接看到一组参数会产生什么波形结果。</p>
+        <div class="hero-badges">
+          <span class="hero-badge">TIMxCLK / PSC / ARR</span>
+          <span class="hero-badge">PWM 占空比</span>
+          <span class="hero-badge">Dead-Time / DTG</span>
+          <span class="hero-badge">HAL 代码片段</span>
+        </div>
       </div>
       <aside class="hero-card">
         <span class="hero-card-title">当前预设</span>
         <strong id="currentPresetLabel">STM32F103</strong>
         <small id="presetClockHint">建议 TIMxCLK 起点：72 MHz</small>
         <p id="presetNote" class="hero-note">预设只用于快速回填，最终请以工程实际 RCC / TIM 内核时钟为准。</p>
+        <div class="hero-kpis">
+          <article class="hero-kpi">
+            <span>定时器时钟</span>
+            <strong id="heroClock">-</strong>
+          </article>
+          <article class="hero-kpi">
+            <span>输出频率</span>
+            <strong id="heroFrequency">-</strong>
+          </article>
+          <article class="hero-kpi">
+            <span>占空比</span>
+            <strong id="heroDuty">-</strong>
+          </article>
+          <article class="hero-kpi">
+            <span>死区时间</span>
+            <strong id="heroDeadTime">-</strong>
+          </article>
+        </div>
       </aside>
     </header>
 
-    <section class="panel">
+    <section class="panel panel-editor">
       <div class="panel-title">
         <h2>设计输入</h2>
         <p>预设只回填一个可编辑的 TIMxCLK 起点，不会锁定你的参数。</p>
       </div>
-      <div class="grid input-grid">
-        <label class="field">
-          <span>芯片预设</span>
-          <select id="chipPreset"></select>
-        </label>
-        <label class="field">
-          <span>定时器时钟来源</span>
-          <select id="clockProfile"></select>
-        </label>
-        <label class="field">
-          <span>TIMxCLK / APB 定时器时钟 (MHz)</span>
-          <input id="apbClockMhz" type="number" min="0.000001" step="0.1" value="72">
-        </label>
-        <label class="field">
-          <span>寄存器位宽</span>
-          <select id="timerBits">
-            <option value="16">16 bit</option>
-            <option value="32">32 bit</option>
-          </select>
-        </label>
-        <label class="field">
-          <span>预分频系数 Prescaler</span>
-          <input id="prescaler" type="number" min="1" step="1" value="720">
-        </label>
-        <label class="field">
-          <span>计数周期 ARR + 1</span>
-          <input id="counterPeriod" type="number" min="1" step="1" value="1000">
-        </label>
-        <label class="field">
-          <span>比较值 CCR</span>
-          <input id="compareValue" type="number" min="0" step="1" value="500">
-        </label>
-        <label class="field">
-          <span>占空比口径</span>
-          <select id="dutyCycleMode">
-            <option value="hardware" selected>硬件准确：CCR / (ARR + 1)</option>
-            <option value="legacy">Excel legacy：CCR / ARR</option>
-          </select>
-        </label>
-        <label class="field">
-          <span>CKD 分频</span>
-          <select id="clockDivision">
-            <option value="1">1</option>
-            <option value="2">2</option>
-            <option value="4" selected>4</option>
-          </select>
-        </label>
-        <label class="field">
-          <span>DTG[7:0] 十进制</span>
-          <input id="dtgValue" type="number" min="0" max="255" step="1" value="255">
-        </label>
-      </div>
+      <div class="editor-layout">
+        <div class="editor-main">
+          <section class="subpanel">
+            <div class="subpanel-head">
+              <h3>时钟与计数基础</h3>
+              <p>先确认芯片系列、定时器时钟和位宽，这部分决定了后续所有结果的上限和精度。</p>
+            </div>
+            <div class="grid input-grid input-grid-wide">
+              <label class="field">
+                <span>芯片预设</span>
+                <select id="chipPreset"></select>
+              </label>
+              <label class="field">
+                <span>定时器时钟来源</span>
+                <select id="clockProfile"></select>
+              </label>
+              <label class="field">
+                <span>TIMxCLK / APB 定时器时钟 (MHz)</span>
+                <input id="apbClockMhz" type="number" min="0.000001" step="0.1" value="72">
+              </label>
+              <label class="field">
+                <span>寄存器位宽</span>
+                <select id="timerBits">
+                  <option value="16">16 bit</option>
+                  <option value="32">32 bit</option>
+                </select>
+              </label>
+            </div>
+          </section>
 
-      <div class="helper-box">
-        <div class="helper-copy">
-          <h3>目标频率反推</h3>
-          <p>输入目标输出频率，页面会回填一组接近的 PSC / ARR，并尽量保持当前占空比。</p>
-        </div>
-        <div class="helper-actions">
-          <label class="field helper-field">
-            <span>目标频率 (Hz)</span>
-            <input id="targetFrequencyHz" type="number" min="0.000001" step="1" placeholder="例如 1000">
-          </label>
-          <button id="applyTargetButton" class="button primary" type="button">回填 PSC / ARR</button>
-          <button id="resetButton" class="button ghost" type="button">恢复默认值</button>
-        </div>
-      </div>
+          <section class="subpanel">
+            <div class="subpanel-head">
+              <h3>PWM 主参数</h3>
+              <p>这里是最常调的寄存器组合。页面会同步显示频率、周期、高电平时间和占空比。</p>
+            </div>
+            <div class="grid input-grid input-grid-wide">
+              <label class="field">
+                <span>预分频系数 Prescaler</span>
+                <input id="prescaler" type="number" min="1" step="1" value="720">
+              </label>
+              <label class="field">
+                <span>计数周期 ARR + 1</span>
+                <input id="counterPeriod" type="number" min="1" step="1" value="1000">
+              </label>
+              <label class="field">
+                <span>比较值 CCR</span>
+                <input id="compareValue" type="number" min="0" step="1" value="500">
+              </label>
+              <label class="field">
+                <span>计数模式</span>
+                <select id="counterMode">
+                  <option value="up" selected>边沿对齐 / 向上计数</option>
+                  <option value="center1">中心对齐 1</option>
+                  <option value="center2">中心对齐 2</option>
+                  <option value="center3">中心对齐 3</option>
+                </select>
+              </label>
+              <label class="field">
+                <span>占空比口径</span>
+                <select id="dutyCycleMode">
+                  <option value="hardware" selected>硬件准确：CCR / (ARR + 1)</option>
+                  <option value="legacy">Excel legacy：CCR / ARR</option>
+                </select>
+              </label>
+            </div>
+          </section>
 
-      <div id="messages" class="messages" aria-live="polite"></div>
+          <section class="subpanel">
+            <div class="subpanel-head">
+              <h3>高级定时器参数</h3>
+              <p>用于带互补输出或死区控制的场景，保持和手册里的 DTG 分支含义一致。</p>
+            </div>
+            <div class="grid input-grid input-grid-narrow">
+              <label class="field">
+                <span>CKD 分频</span>
+                <select id="clockDivision">
+                  <option value="1">1</option>
+                  <option value="2">2</option>
+                  <option value="4" selected>4</option>
+                </select>
+              </label>
+              <label class="field">
+                <span>DTG[7:0] 十进制</span>
+                <input id="dtgValue" type="number" min="0" max="255" step="1" value="255">
+              </label>
+            </div>
+          </section>
+
+          <section class="subpanel">
+            <div class="subpanel-head">
+              <h3>调参速记</h3>
+              <p>把最常见的取舍提前摆在输入区，减少来回翻结果卡片的次数。</p>
+            </div>
+            <div class="tips-grid">
+              <article class="tip-card">
+                <span>想提高输出频率</span>
+                <p>优先减小 ARR，再看是否需要同步减小 Prescaler，避免一开始就丢掉分辨率。</p>
+              </article>
+              <article class="tip-card">
+                <span>想提高占空比分辨率</span>
+                <p>在目标频率不变时，尽量让 ARR 更大，CCR 可调步进会更细。</p>
+              </article>
+              <article class="tip-card">
+                <span>想让死区更可控</span>
+                <p>优先确认 CKD 和 DTG 分支，再看死区时间占整个周期的比例是否合理。</p>
+              </article>
+              <article class="tip-card">
+                <span>F4 / F7 / H7 注意</span>
+                <p>先确认当前实例挂在 APB1 还是 APB2，再决定 TIMxCLK，不要直接套主频。</p>
+              </article>
+            </div>
+          </section>
+
+          <div id="messages" class="messages" aria-live="polite"></div>
+        </div>
+        <aside class="editor-sidebar">
+          <article class="side-card side-card-highlight">
+            <div class="side-card-head">
+              <span class="eyebrow eyebrow-soft">Live Summary</span>
+              <h3>当前组合</h3>
+            </div>
+            <div class="live-grid">
+              <div class="live-item">
+                <span>定时器时钟</span>
+                <strong id="overviewClock">-</strong>
+              </div>
+              <div class="live-item">
+                <span>输出频率</span>
+                <strong id="overviewFrequency">-</strong>
+              </div>
+              <div class="live-item">
+                <span>占空比</span>
+                <strong id="overviewDuty">-</strong>
+              </div>
+              <div class="live-item">
+                <span>死区时间</span>
+                <strong id="overviewDeadTime">-</strong>
+              </div>
+              <div class="live-item">
+                <span>寄存器</span>
+                <strong id="overviewRegisters">-</strong>
+              </div>
+              <div class="live-item">
+                <span>时钟配置</span>
+                <strong id="overviewProfile">-</strong>
+              </div>
+            </div>
+          </article>
+
+          <article class="side-card">
+            <div class="side-card-head">
+              <h3>计算路径</h3>
+              <p>把输入参数如何影响最终 PWM 输出，用一条链直接展示出来。</p>
+            </div>
+            <div class="formula-flow">
+              <div class="formula-node">
+                <small>TIMxCLK</small>
+                <strong id="flowClock">-</strong>
+              </div>
+              <span class="formula-arrow">÷ PSC</span>
+              <div class="formula-node">
+                <small>Tick</small>
+                <strong id="flowTick">-</strong>
+              </div>
+              <span class="formula-arrow">× ARR</span>
+              <div class="formula-node">
+                <small>Period</small>
+                <strong id="flowPeriod">-</strong>
+              </div>
+              <span class="formula-arrow">× CCR</span>
+              <div class="formula-node">
+                <small>Pulse</small>
+                <strong id="flowPulse">-</strong>
+              </div>
+            </div>
+          </article>
+
+          <div class="helper-box helper-box-sidebar">
+            <div class="helper-copy">
+              <h3>目标频率反推</h3>
+              <p>输入目标输出频率，页面会回填一组接近的 PSC / ARR，并尽量保持当前占空比。</p>
+            </div>
+            <div class="helper-actions helper-actions-stack">
+              <label class="field helper-field">
+                <span>目标频率 (Hz)</span>
+                <input id="targetFrequencyHz" type="number" min="0.000001" step="1" placeholder="例如 1000">
+              </label>
+              <button id="applyTargetButton" class="button primary" type="button">回填 PSC / ARR</button>
+              <button id="resetButton" class="button ghost" type="button">恢复默认值</button>
+            </div>
+            <div class="helper-metrics">
+              <article class="helper-metric">
+                <span>实际频率</span>
+                <strong id="targetFrequencyActual">-</strong>
+              </article>
+              <article class="helper-metric">
+                <span>相对误差</span>
+                <strong id="targetFrequencyError">-</strong>
+              </article>
+              <article class="helper-metric helper-metric-wide">
+                <span>拟合结果</span>
+                <strong id="targetFrequencyFit">-</strong>
+              </article>
+            </div>
+            <p id="targetFrequencyHint" class="helper-note">在目标频率输入框按 Enter 也可以直接回填。</p>
+          </div>
+
+          <article class="side-card">
+            <div class="side-card-head">
+              <h3>目标死区反推</h3>
+              <p>输入想要的死区时间，页面会在当前 TIMxCLK + CKD 条件下反推最接近的 DTG。</p>
+            </div>
+            <div class="helper-actions helper-actions-stack">
+              <label class="field helper-field">
+                <span>目标死区时间 (μs)</span>
+                <input id="targetDeadTimeUs" type="number" min="0" step="0.01" placeholder="例如 1.5">
+              </label>
+              <button id="applyDeadTimeButton" class="button primary" type="button">回填 DTG</button>
+            </div>
+            <div class="helper-metrics">
+              <article class="helper-metric">
+                <span>推荐 DTG</span>
+                <strong id="reverseDtgValue">-</strong>
+              </article>
+              <article class="helper-metric">
+                <span>实际死区</span>
+                <strong id="reverseDeadTimeActual">-</strong>
+              </article>
+              <article class="helper-metric">
+                <span>相对误差</span>
+                <strong id="reverseDeadTimeError">-</strong>
+              </article>
+              <article class="helper-metric helper-metric-wide">
+                <span>RM 分支</span>
+                <strong id="reverseDeadTimeBranch">-</strong>
+              </article>
+            </div>
+            <p id="targetDeadTimeHint" class="helper-note">这个反推沿用当前页面的 DTG / Tdts 计算逻辑。</p>
+          </div>
+        </aside>
+      </div>
     </section>
 
     <section class="panel">
@@ -166,6 +363,37 @@
           <strong id="dutyCycle">-</strong>
           <small id="dutyCycleDetail">-</small>
         </article>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-title">
+        <h2>波形预览</h2>
+        <p>按一个 PWM 周期归一化示意当前模式、占空比和死区窗口，便于快速判断是否符合预期。</p>
+      </div>
+      <div class="wave-panel">
+        <div class="wave-summary">
+          <article class="wave-chip">
+            <span>模式</span>
+            <strong id="waveMode">-</strong>
+          </article>
+          <article class="wave-chip">
+            <span>周期</span>
+            <strong id="wavePeriod">-</strong>
+          </article>
+          <article class="wave-chip">
+            <span>高电平</span>
+            <strong id="wavePulse">-</strong>
+          </article>
+          <article class="wave-chip">
+            <span>死区窗口</span>
+            <strong id="waveDeadTime">-</strong>
+          </article>
+        </div>
+        <div class="wave-canvas">
+          <svg id="waveformPreview" class="waveform-preview" viewBox="0 0 960 260" role="img" aria-label="PWM waveform preview"></svg>
+        </div>
+        <p id="waveHint" class="helper-note">预览按当前硬件 PWM 时序归一化显示；死区窗口用于提示切换留白，不代表驱动器传播延迟。</p>
       </div>
     </section>
 
@@ -257,6 +485,8 @@
         <li>原表中 `TIM_Period / TIM_Prescaler` 备注位置有混淆，这里直接显示 `PSC` 与 `ARR` 寄存器值。</li>
         <li>大多数通用 / 高级定时器是 16 位，少数如 `TIM2 / TIM5` 常见为 32 位，位宽请按实际外设选择。</li>
         <li>页面会在本地自动保存最近一次输入，刷新后仍可继续使用。</li>
+        <li>中心对齐模式下，一个 PWM 周期包含上升和下降两个计数阶段，所以频率会相对边沿对齐减半。</li>
+        <li>目标频率与目标死区反推都支持直接回填；目标频率输入框按 `Enter` 可触发快速拟合。</li>
       </ul>
     </section>
   </main>
