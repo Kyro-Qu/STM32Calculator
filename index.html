@@ -16,6 +16,10 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
+  <div class="theme-backdrop" aria-hidden="true">
+    <span class="theme-backdrop-layer theme-backdrop-dark"></span>
+    <span class="theme-backdrop-layer theme-backdrop-light"></span>
+  </div>
   <main class="container">
     <header class="hero">
       <div class="hero-copy">
@@ -28,8 +32,56 @@
           <span class="hero-badge">Dead-Time / DTG</span>
           <span class="hero-badge">HAL 代码片段</span>
         </div>
+        <div class="hero-tiles">
+          <article class="hero-tile">
+            <span>01</span>
+            <strong>配置时钟与模式</strong>
+            <p>先确定总线时钟、位宽与边沿/中心对齐模式，避免一开始就把频率口径算错。</p>
+          </article>
+          <article class="hero-tile">
+            <span>02</span>
+            <strong>直接反推关键参数</strong>
+            <p>频率、占空比、死区时间都支持回填，减少手动试错。</p>
+          </article>
+          <article class="hero-tile">
+            <span>03</span>
+            <strong>验证并分享结果</strong>
+            <p>用波形预览、导出和分享链接把当前配置快速交给别人复现。</p>
+          </article>
+        </div>
         <div class="hero-toolbar">
-          <button id="themeToggleButton" class="button ghost" type="button">切换浅色主题</button>
+          <button
+            id="themeToggleButton"
+            class="theme-toggle"
+            type="button"
+            aria-label="切换到浅色主题"
+            aria-pressed="false"
+            title="切换到浅色主题"
+          >
+            <span class="theme-toggle-track" aria-hidden="true">
+              <span class="theme-toggle-side theme-toggle-side-sun">
+                <svg class="theme-toggle-mini-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+                  <circle cx="12" cy="12" r="4.2"></circle>
+                  <path d="M12 2.5v2.5M12 19v2.5M4.93 4.93l1.77 1.77M17.3 17.3l1.77 1.77M2.5 12H5M19 12h2.5M4.93 19.07l1.77-1.77M17.3 6.7l1.77-1.77"></path>
+                </svg>
+              </span>
+              <span class="theme-toggle-side theme-toggle-side-moon">
+                <svg class="theme-toggle-mini-icon" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M14.7 2.8a.9.9 0 0 1 .98 1.22 8.2 8.2 0 1 0 10.3 10.3.9.9 0 0 1 1.22.98A10.4 10.4 0 1 1 14.7 2.8Z"></path>
+                </svg>
+              </span>
+              <span class="theme-toggle-thumb">
+                <svg class="theme-toggle-icon theme-toggle-icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round">
+                  <circle cx="12" cy="12" r="4.4"></circle>
+                  <path d="M12 1.75v3.1M12 19.15v3.1M4.4 4.4l2.2 2.2M17.4 17.4l2.2 2.2M1.75 12h3.1M19.15 12h3.1M4.4 19.6l2.2-2.2M17.4 6.6l2.2-2.2"></path>
+                </svg>
+                <svg class="theme-toggle-icon theme-toggle-icon-moon" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M14.9 2.5a1 1 0 0 1 1.08 1.34 8.45 8.45 0 1 0 10.18 10.18 1 1 0 0 1 1.34 1.08A10.7 10.7 0 1 1 14.9 2.5Z"></path>
+                </svg>
+              </span>
+            </span>
+            <span id="themeToggleText" class="sr-only">切换到浅色主题</span>
+          </button>
         </div>
       </div>
       <aside class="hero-card">
@@ -63,9 +115,9 @@
         <h2>设计输入</h2>
         <p>预设只回填一个可编辑的 TIMxCLK 起点，不会锁定你的参数。</p>
       </div>
-      <div class="editor-layout">
+      <div class="editor-layout editor-layout-mosaic">
         <div class="editor-main">
-          <section class="subpanel">
+          <section class="subpanel editor-card editor-card-clock">
             <div class="subpanel-head">
               <h3>时钟与计数基础</h3>
               <p>先确认芯片系列、定时器时钟和位宽，这部分决定了后续所有结果的上限和精度。</p>
@@ -93,7 +145,7 @@
             </div>
           </section>
 
-          <section class="subpanel">
+          <section class="subpanel editor-card editor-card-pwm">
             <div class="subpanel-head">
               <h3>PWM 主参数</h3>
               <p>这里是最常调的寄存器组合。页面会同步显示频率、周期、高电平时间和占空比。</p>
@@ -144,7 +196,7 @@
             </div>
           </section>
 
-          <section class="subpanel">
+          <section class="subpanel editor-card editor-card-advanced">
             <div class="subpanel-head">
               <h3>高级定时器参数</h3>
               <p>用于带互补输出或死区控制的场景，保持和手册里的 DTG 分支含义一致。</p>
@@ -165,7 +217,7 @@
             </div>
           </section>
 
-          <section class="subpanel">
+          <section class="subpanel editor-card editor-card-tips">
             <div class="subpanel-head">
               <h3>调参速记</h3>
               <p>把最常见的取舍提前摆在输入区，减少来回翻结果卡片的次数。</p>
@@ -190,10 +242,10 @@
             </div>
           </section>
 
-          <div id="messages" class="messages" aria-live="polite"></div>
+          <div id="messages" class="messages editor-card editor-card-messages" aria-live="polite"></div>
         </div>
         <aside class="editor-sidebar">
-          <article class="side-card side-card-highlight">
+          <article class="side-card side-card-highlight editor-card editor-card-summary">
             <div class="side-card-head">
               <span class="eyebrow eyebrow-soft">Live Summary</span>
               <h3>当前组合</h3>
@@ -226,7 +278,7 @@
             </div>
           </article>
 
-          <article class="side-card">
+          <article class="side-card editor-card editor-card-flow">
             <div class="side-card-head">
               <h3>计算路径</h3>
               <p>把输入参数如何影响最终 PWM 输出，用一条链直接展示出来。</p>
@@ -254,7 +306,7 @@
             </div>
           </article>
 
-          <div class="helper-box helper-box-sidebar">
+          <div class="helper-box helper-box-sidebar editor-card editor-card-frequency">
             <div class="helper-copy">
               <h3>目标频率反推</h3>
               <p>输入目标输出频率，页面会回填一组接近的 PSC / ARR，并尽量保持当前占空比。</p>
@@ -284,7 +336,7 @@
             <p id="targetFrequencyHint" class="helper-note">在目标频率输入框按 Enter 也可以直接回填。</p>
           </div>
 
-          <article class="side-card">
+          <article class="side-card editor-card editor-card-deadtime">
             <div class="side-card-head">
               <h3>目标死区反推</h3>
               <p>输入想要的死区时间，页面会在当前 TIMxCLK + CKD 条件下反推最接近的 DTG。</p>
@@ -317,7 +369,7 @@
             <p id="targetDeadTimeHint" class="helper-note">这个反推沿用当前页面的 DTG / Tdts 计算逻辑。</p>
           </article>
 
-          <article class="side-card">
+          <article class="side-card editor-card editor-card-share">
             <div class="side-card-head">
               <h3>共享与导出</h3>
               <p>把当前配置编码到 URL，或者导出成 JSON / CSV 方便归档和对比。</p>

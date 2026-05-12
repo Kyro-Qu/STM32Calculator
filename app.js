@@ -359,6 +359,7 @@ const elements = {
   applyDeadTimeButton: document.getElementById("applyDeadTimeButton"),
   resetButton: document.getElementById("resetButton"),
   themeToggleButton: document.getElementById("themeToggleButton"),
+  themeToggleText: document.getElementById("themeToggleText"),
   copyShareLinkButton: document.getElementById("copyShareLinkButton"),
   exportJsonButton: document.getElementById("exportJsonButton"),
   exportCsvButton: document.getElementById("exportCsvButton"),
@@ -493,8 +494,17 @@ function getResolvedTheme(preference = themePreference) {
 function applyTheme(preference = themePreference) {
   const resolvedTheme = getResolvedTheme(preference);
   document.body.dataset.theme = resolvedTheme;
-  const nextLabel = resolvedTheme === "dark" ? "切换浅色主题" : "切换深色主题";
-  elements.themeToggleButton.textContent = nextLabel;
+  const nextLabel = resolvedTheme === "dark" ? "切换到浅色主题" : "切换到深色主题";
+  elements.themeToggleButton.setAttribute("aria-label", nextLabel);
+  elements.themeToggleButton.setAttribute("title", nextLabel);
+  elements.themeToggleButton.setAttribute("aria-pressed", String(resolvedTheme === "light"));
+  if (elements.themeToggleText) {
+    elements.themeToggleText.textContent = nextLabel;
+  }
+  const themeColorMeta = document.querySelector('meta[name="theme-color"]');
+  if (themeColorMeta) {
+    themeColorMeta.setAttribute("content", resolvedTheme === "light" ? "#f8fbff" : "#0b1020");
+  }
 }
 
 function toggleTheme() {
