@@ -7,8 +7,12 @@
   <meta property="og:title" content="STM32 定时器计算器">
   <meta property="og:description" content="支持 TIMxCLK、PSC、ARR、CCR、PWM 占空比、死区时间、目标频率反推和多系列 STM32 预设。">
   <meta property="og:type" content="website">
+  <meta property="og:image" content="assets/og-cover.svg">
+  <meta property="og:image:alt" content="STM32 定时器计算器封面图">
+  <meta name="twitter:card" content="summary_large_image">
   <meta name="theme-color" content="#0b1020">
   <title>STM32 定时器计算器</title>
+  <link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -23,6 +27,9 @@
           <span class="hero-badge">PWM 占空比</span>
           <span class="hero-badge">Dead-Time / DTG</span>
           <span class="hero-badge">HAL 代码片段</span>
+        </div>
+        <div class="hero-toolbar">
+          <button id="themeToggleButton" class="button ghost" type="button">切换浅色主题</button>
         </div>
       </div>
       <aside class="hero-card">
@@ -120,6 +127,20 @@
                   <option value="legacy">Excel legacy：CCR / ARR</option>
                 </select>
               </label>
+            </div>
+            <div class="helper-box helper-box-inline">
+              <div class="helper-copy">
+                <h3>目标占空比反推</h3>
+                <p>输入目标占空比，直接回填主通道的 CCR，适合先定频再定脉宽的场景。</p>
+              </div>
+              <div class="helper-actions">
+                <label class="field helper-field">
+                  <span>目标占空比 (%)</span>
+                  <input id="targetDutyPercent" type="number" min="0" max="100" step="0.1" placeholder="例如 37.5">
+                </label>
+                <button id="applyDutyButton" class="button primary" type="button">回填 CCR</button>
+              </div>
+              <p id="targetDutyHint" class="helper-note">会按当前占空比口径和计数模式计算。</p>
             </div>
           </section>
 
@@ -294,7 +315,22 @@
               </article>
             </div>
             <p id="targetDeadTimeHint" class="helper-note">这个反推沿用当前页面的 DTG / Tdts 计算逻辑。</p>
-          </div>
+          </article>
+
+          <article class="side-card">
+            <div class="side-card-head">
+              <h3>共享与导出</h3>
+              <p>把当前配置编码到 URL，或者导出成 JSON / CSV 方便归档和对比。</p>
+            </div>
+            <div class="helper-actions helper-actions-stack">
+              <button id="copyShareLinkButton" class="button primary" type="button">复制分享链接</button>
+              <div class="button-row">
+                <button id="exportJsonButton" class="button ghost" type="button">导出 JSON</button>
+                <button id="exportCsvButton" class="button ghost" type="button">导出 CSV</button>
+              </div>
+            </div>
+            <p id="shareLinkHint" class="helper-note">分享链接会带上当前参数，接收方打开即可恢复。</p>
+          </article>
         </aside>
       </div>
     </section>
@@ -395,6 +431,93 @@
         </div>
         <p id="waveHint" class="helper-note">预览按当前硬件 PWM 时序归一化显示；死区窗口用于提示切换留白，不代表驱动器传播延迟。</p>
       </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-title">
+        <h2>多通道输出规划</h2>
+        <p>为同一个定时器的 CH1–CH4 分别填写 CCR，页面会同步显示各自占空比和高电平时间。</p>
+      </div>
+      <div class="grid channel-input-grid">
+        <label class="field">
+          <span>CH1 CCR</span>
+          <input id="channel1Compare" type="number" min="0" step="1" value="500">
+        </label>
+        <label class="field">
+          <span>CH2 CCR</span>
+          <input id="channel2Compare" type="number" min="0" step="1" value="250">
+        </label>
+        <label class="field">
+          <span>CH3 CCR</span>
+          <input id="channel3Compare" type="number" min="0" step="1" value="750">
+        </label>
+        <label class="field">
+          <span>CH4 CCR</span>
+          <input id="channel4Compare" type="number" min="0" step="1" value="900">
+        </label>
+      </div>
+      <div class="grid channel-result-grid">
+        <article class="card">
+          <span class="label">CH1</span>
+          <strong id="channel1Duty">-</strong>
+          <small id="channel1Detail">-</small>
+        </article>
+        <article class="card">
+          <span class="label">CH2</span>
+          <strong id="channel2Duty">-</strong>
+          <small id="channel2Detail">-</small>
+        </article>
+        <article class="card">
+          <span class="label">CH3</span>
+          <strong id="channel3Duty">-</strong>
+          <small id="channel3Detail">-</small>
+        </article>
+        <article class="card">
+          <span class="label">CH4</span>
+          <strong id="channel4Duty">-</strong>
+          <small id="channel4Detail">-</small>
+        </article>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-title">
+        <h2>输入捕获规划</h2>
+        <p>根据待测输入信号频率和期望每周期计数，反推更适合输入捕获的 PSC / ARR 组合。</p>
+      </div>
+      <div class="grid input-grid input-grid-wide">
+        <label class="field">
+          <span>待测输入频率 (Hz)</span>
+          <input id="captureSignalHz" type="number" min="0.000001" step="1" placeholder="例如 5000">
+        </label>
+        <label class="field">
+          <span>期望每周期计数</span>
+          <input id="captureTargetCounts" type="number" min="1" step="1" value="10000">
+        </label>
+      </div>
+      <div class="grid result-grid compact">
+        <article class="card">
+          <span class="label">推荐 Prescaler</span>
+          <strong id="capturePrescaler">-</strong>
+          <small id="capturePscRegister">-</small>
+        </article>
+        <article class="card">
+          <span class="label">推荐 ARR + 1</span>
+          <strong id="captureCounterPeriod">-</strong>
+          <small id="captureArrRegister">-</small>
+        </article>
+        <article class="card">
+          <span class="label">实际每周期计数</span>
+          <strong id="captureActualCounts">-</strong>
+          <small id="captureResolution">-</small>
+        </article>
+        <article class="card">
+          <span class="label">输入捕获时钟</span>
+          <strong id="captureTickFrequency">-</strong>
+          <small id="captureOverflowHint">-</small>
+        </article>
+      </div>
+      <p id="captureHint" class="helper-note">ARR 会按当前位宽和约 25% 裕量给出建议，避免边界处频繁溢出。</p>
     </section>
 
     <section class="panel">

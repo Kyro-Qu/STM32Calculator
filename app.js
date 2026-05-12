@@ -1,5 +1,9 @@
-const STORAGE_KEY = "stm32-timer-calculator-state-v3";
-const LEGACY_STORAGE_KEY = "stm32-timer-calculator-state-v2";
+const STORAGE_KEY = "stm32-timer-calculator-state-v4";
+const LEGACY_STORAGE_KEYS = [
+  "stm32-timer-calculator-state-v3",
+  "stm32-timer-calculator-state-v2",
+];
+const THEME_STORAGE_KEY = "stm32-timer-calculator-theme";
 
 function manualClockProfile() {
   return { id: "manual", label: "手工输入", apbClockMhz: null };
@@ -324,7 +328,14 @@ const DEFAULT_STATE = {
   clockDivision: "4",
   dtgValue: "255",
   targetFrequencyHz: "",
+  targetDutyPercent: "",
   targetDeadTimeUs: "",
+  channel1Compare: "500",
+  channel2Compare: "250",
+  channel3Compare: "750",
+  channel4Compare: "900",
+  captureSignalHz: "",
+  captureTargetCounts: "10000",
   dutyCycleMode: "hardware",
 };
 
@@ -341,10 +352,16 @@ const elements = {
   clockDivision: document.getElementById("clockDivision"),
   dtgValue: document.getElementById("dtgValue"),
   targetFrequencyHz: document.getElementById("targetFrequencyHz"),
+  targetDutyPercent: document.getElementById("targetDutyPercent"),
   targetDeadTimeUs: document.getElementById("targetDeadTimeUs"),
   applyTargetButton: document.getElementById("applyTargetButton"),
+  applyDutyButton: document.getElementById("applyDutyButton"),
   applyDeadTimeButton: document.getElementById("applyDeadTimeButton"),
   resetButton: document.getElementById("resetButton"),
+  themeToggleButton: document.getElementById("themeToggleButton"),
+  copyShareLinkButton: document.getElementById("copyShareLinkButton"),
+  exportJsonButton: document.getElementById("exportJsonButton"),
+  exportCsvButton: document.getElementById("exportCsvButton"),
   copySnippetButton: document.getElementById("copySnippetButton"),
   messages: document.getElementById("messages"),
   currentPresetLabel: document.getElementById("currentPresetLabel"),
@@ -368,11 +385,13 @@ const elements = {
   targetFrequencyError: document.getElementById("targetFrequencyError"),
   targetFrequencyFit: document.getElementById("targetFrequencyFit"),
   targetFrequencyHint: document.getElementById("targetFrequencyHint"),
+  targetDutyHint: document.getElementById("targetDutyHint"),
   reverseDtgValue: document.getElementById("reverseDtgValue"),
   reverseDeadTimeActual: document.getElementById("reverseDeadTimeActual"),
   reverseDeadTimeError: document.getElementById("reverseDeadTimeError"),
   reverseDeadTimeBranch: document.getElementById("reverseDeadTimeBranch"),
   targetDeadTimeHint: document.getElementById("targetDeadTimeHint"),
+  shareLinkHint: document.getElementById("shareLinkHint"),
   presetFamily: document.getElementById("presetFamily"),
   presetBitsHint: document.getElementById("presetBitsHint"),
   pscRegister: document.getElementById("pscRegister"),
@@ -407,6 +426,29 @@ const elements = {
   dtgActiveLabel: document.getElementById("dtgActiveLabel"),
   dtgActiveDec: document.getElementById("dtgActiveDec"),
   dtgActiveBin: document.getElementById("dtgActiveBin"),
+  channel1Compare: document.getElementById("channel1Compare"),
+  channel2Compare: document.getElementById("channel2Compare"),
+  channel3Compare: document.getElementById("channel3Compare"),
+  channel4Compare: document.getElementById("channel4Compare"),
+  channel1Duty: document.getElementById("channel1Duty"),
+  channel1Detail: document.getElementById("channel1Detail"),
+  channel2Duty: document.getElementById("channel2Duty"),
+  channel2Detail: document.getElementById("channel2Detail"),
+  channel3Duty: document.getElementById("channel3Duty"),
+  channel3Detail: document.getElementById("channel3Detail"),
+  channel4Duty: document.getElementById("channel4Duty"),
+  channel4Detail: document.getElementById("channel4Detail"),
+  captureSignalHz: document.getElementById("captureSignalHz"),
+  captureTargetCounts: document.getElementById("captureTargetCounts"),
+  capturePrescaler: document.getElementById("capturePrescaler"),
+  capturePscRegister: document.getElementById("capturePscRegister"),
+  captureCounterPeriod: document.getElementById("captureCounterPeriod"),
+  captureArrRegister: document.getElementById("captureArrRegister"),
+  captureActualCounts: document.getElementById("captureActualCounts"),
+  captureResolution: document.getElementById("captureResolution"),
+  captureTickFrequency: document.getElementById("captureTickFrequency"),
+  captureOverflowHint: document.getElementById("captureOverflowHint"),
+  captureHint: document.getElementById("captureHint"),
   generatedSnippet: document.getElementById("generatedSnippet"),
   snippetMeta: document.getElementById("snippetMeta"),
   waveMode: document.getElementById("waveMode"),
@@ -420,14 +462,50 @@ const elements = {
 let statusMessage = null;
 let lastTargetFrequencyFit = null;
 let lastDeadTimeReverseFit = null;
+let themePreference = null;
 
 function init() {
+  initTheme();
   populatePresetSelect();
   const restoredState = restoreState();
   populateClockProfiles(getSelectedPreset(), restoredState.clockProfile);
   updatePresetSummary();
   bindEvents();
   calculate();
+}
+
+function initTheme() {
+  try {
+    themePreference = localStorage.getItem(THEME_STORAGE_KEY);
+  } catch (error) {
+    themePreference = null;
+  }
+  applyTheme(themePreference);
+}
+
+function getResolvedTheme(preference = themePreference) {
+  if (preference === "light" || preference === "dark") {
+    return preference;
+  }
+  return window.matchMedia?.("(prefers-color-scheme: light)").matches ? "light" : "dark";
+}
+
+function applyTheme(preference = themePreference) {
+  const resolvedTheme = getResolvedTheme(preference);
+  document.body.dataset.theme = resolvedTheme;
+  const nextLabel = resolvedTheme === "dark" ? "切换浅色主题" : "切换深色主题";
+  elements.themeToggleButton.textContent = nextLabel;
+}
+
+function toggleTheme() {
+  const currentTheme = getResolvedTheme();
+  themePreference = currentTheme === "dark" ? "light" : "dark";
+  try {
+    localStorage.setItem(THEME_STORAGE_KEY, themePreference);
+  } catch (error) {
+    // Ignore storage failures.
+  }
+  applyTheme(themePreference);
 }
 
 function populatePresetSelect() {
@@ -494,13 +572,21 @@ function bindEvents() {
   elements.apbClockMhz.addEventListener("input", syncClockProfileWithInput);
   elements.apbClockMhz.addEventListener("change", syncClockProfileWithInput);
   elements.applyTargetButton.addEventListener("click", applyTargetFrequency);
+  elements.applyDutyButton.addEventListener("click", applyTargetDuty);
   elements.applyDeadTimeButton.addEventListener("click", applyTargetDeadTime);
   elements.resetButton.addEventListener("click", resetToDefaults);
+  elements.themeToggleButton.addEventListener("click", toggleTheme);
+  elements.copyShareLinkButton.addEventListener("click", copyShareLink);
+  elements.exportJsonButton.addEventListener("click", exportConfigJson);
+  elements.exportCsvButton.addEventListener("click", exportConfigCsv);
   elements.copySnippetButton.addEventListener("click", copySnippet);
   elements.targetFrequencyHz.addEventListener("keydown", handleTargetFrequencyKeydown);
+  elements.targetDutyPercent.addEventListener("keydown", handleTargetDutyKeydown);
   elements.targetDeadTimeUs.addEventListener("keydown", handleTargetDeadTimeKeydown);
   elements.targetFrequencyHz.addEventListener("input", handleTargetFrequencyDraftChange);
   elements.targetFrequencyHz.addEventListener("change", handleTargetFrequencyDraftChange);
+  elements.targetDutyPercent.addEventListener("input", handleTargetDutyDraftChange);
+  elements.targetDutyPercent.addEventListener("change", handleTargetDutyDraftChange);
   elements.targetDeadTimeUs.addEventListener("input", handleTargetDeadTimeDraftChange);
   elements.targetDeadTimeUs.addEventListener("change", handleTargetDeadTimeDraftChange);
 
@@ -513,6 +599,12 @@ function bindEvents() {
     "dutyCycleMode",
     "clockDivision",
     "dtgValue",
+    "channel1Compare",
+    "channel2Compare",
+    "channel3Compare",
+    "channel4Compare",
+    "captureSignalHz",
+    "captureTargetCounts",
   ].forEach((key) => {
     elements[key].addEventListener("input", clearStatusAndCalculate);
     elements[key].addEventListener("change", clearStatusAndCalculate);
@@ -537,6 +629,13 @@ function handleTargetFrequencyKeydown(event) {
   }
 }
 
+function handleTargetDutyKeydown(event) {
+  if (event.key === "Enter") {
+    event.preventDefault();
+    applyTargetDuty();
+  }
+}
+
 function handleTargetDeadTimeKeydown(event) {
   if (event.key === "Enter") {
     event.preventDefault();
@@ -547,6 +646,11 @@ function handleTargetDeadTimeKeydown(event) {
 function handleTargetFrequencyDraftChange() {
   statusMessage = null;
   lastTargetFrequencyFit = null;
+  calculate();
+}
+
+function handleTargetDutyDraftChange() {
+  statusMessage = null;
   calculate();
 }
 
@@ -708,6 +812,110 @@ function formatNumber(value, maxFractionDigits = 6) {
   });
 }
 
+function getStateSnapshot() {
+  const snapshot = {};
+  Object.keys(DEFAULT_STATE).forEach((key) => {
+    snapshot[key] = elements[key].value;
+  });
+  return snapshot;
+}
+
+function loadStateFromUrl() {
+  try {
+    const params = new URLSearchParams(window.location.search);
+    const snapshot = {};
+    Object.keys(DEFAULT_STATE).forEach((key) => {
+      if (params.has(key)) {
+        snapshot[key] = params.get(key);
+      }
+    });
+    return Object.keys(snapshot).length > 0 ? snapshot : null;
+  } catch (error) {
+    return null;
+  }
+}
+
+function updateUrlState(snapshot = getStateSnapshot()) {
+  try {
+    const url = new URL(window.location.href);
+    url.search = "";
+    Object.entries(snapshot).forEach(([key, value]) => {
+      if (value !== "" && String(value) !== String(DEFAULT_STATE[key])) {
+        url.searchParams.set(key, value);
+      }
+    });
+    history.replaceState(null, "", url.toString());
+  } catch (error) {
+    // Ignore URL update failures.
+  }
+}
+
+function downloadTextFile(filename, content, mimeType = "text/plain;charset=utf-8") {
+  const blob = new Blob([content], { type: mimeType });
+  const objectUrl = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = objectUrl;
+  link.download = filename;
+  document.body.append(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(objectUrl);
+}
+
+function getExportPayload() {
+  return {
+    generatedAt: new Date().toISOString(),
+    preset: getSelectedPreset().name,
+    clockProfile: getSelectedClockProfile().label,
+    theme: getResolvedTheme(),
+    inputs: getStateSnapshot(),
+    outputs: {
+      timerClockMhz: elements.timerClockMhz.textContent,
+      frequencyHz: elements.frequencyHz.textContent,
+      periodUs: elements.periodUs.textContent,
+      dutyCycle: elements.dutyCycle.textContent,
+      deadTimeUs: elements.deadTimeUs.textContent,
+      snippetMeta: elements.snippetMeta.textContent,
+    },
+  };
+}
+
+async function copyShareLink() {
+  updateUrlState();
+  try {
+    await navigator.clipboard.writeText(window.location.href);
+    statusMessage = { type: "ok", text: "分享链接已复制到剪贴板。" };
+  } catch (error) {
+    statusMessage = { type: "warn", text: "浏览器未允许复制分享链接，请手动复制地址栏。" };
+  }
+  calculate();
+}
+
+function exportConfigJson() {
+  downloadTextFile("stm32-timer-config.json", JSON.stringify(getExportPayload(), null, 2), "application/json;charset=utf-8");
+  statusMessage = { type: "ok", text: "已导出 JSON 配置文件。" };
+  calculate();
+}
+
+function exportConfigCsv() {
+  const payload = getExportPayload();
+  const rows = [
+    ["section", "key", "value"],
+    ...Object.entries(payload.inputs).map(([key, value]) => ["input", key, value]),
+    ...Object.entries(payload.outputs).map(([key, value]) => ["output", key, value]),
+    ["meta", "preset", payload.preset],
+    ["meta", "clockProfile", payload.clockProfile],
+    ["meta", "theme", payload.theme],
+    ["meta", "generatedAt", payload.generatedAt],
+  ];
+  const csv = rows
+    .map((row) => row.map((value) => `"${String(value).replaceAll('"', '""')}"`).join(","))
+    .join("\n");
+  downloadTextFile("stm32-timer-config.csv", csv, "text/csv;charset=utf-8");
+  statusMessage = { type: "ok", text: "已导出 CSV 配置文件。" };
+  calculate();
+}
+
 function renderTargetFrequencyFeedback() {
   if (!lastTargetFrequencyFit) {
     elements.targetFrequencyActual.textContent = "-";
@@ -834,6 +1042,73 @@ function renderWaveformPreview(values) {
   `;
 }
 
+function renderChannelOutputs(counterPeriod, tickTimeUs, periodFactor, registerMax) {
+  const channelDescriptors = [
+    { compare: "channel1Compare", duty: "channel1Duty", detail: "channel1Detail", name: "CH1" },
+    { compare: "channel2Compare", duty: "channel2Duty", detail: "channel2Detail", name: "CH2" },
+    { compare: "channel3Compare", duty: "channel3Duty", detail: "channel3Detail", name: "CH3" },
+    { compare: "channel4Compare", duty: "channel4Duty", detail: "channel4Detail", name: "CH4" },
+  ];
+
+  channelDescriptors.forEach((descriptor) => {
+    const compareValue = readInt(elements[descriptor.compare]);
+    if (!Number.isInteger(compareValue) || compareValue < 0) {
+      elements[descriptor.duty].textContent = "输入无效";
+      elements[descriptor.detail].textContent = "CCR 需为非负整数";
+      return;
+    }
+
+    const dutyConfig = getDutyModeConfig(counterPeriod, compareValue);
+    const pulseWidthUs = compareValue * tickTimeUs * periodFactor;
+    elements[descriptor.duty].textContent = `${formatNumber(dutyConfig.displayedDuty, 8)} %`;
+    elements[descriptor.detail].textContent = compareValue > registerMax
+      ? `CCR = ${compareValue}，超出当前位宽`
+      : `CCR = ${compareValue} · 高电平 ${formatNumber(pulseWidthUs, 8)} μs`;
+  });
+}
+
+function renderCapturePlanner(apbClockMhz, timerBits) {
+  const signalHz = readNumber(elements.captureSignalHz);
+  const targetCounts = readInt(elements.captureTargetCounts);
+  const registerMax = (2 ** timerBits) - 1;
+  const inputMax = registerMax + 1;
+
+  if (!(signalHz > 0) || !Number.isInteger(targetCounts) || targetCounts < 1 || !(apbClockMhz > 0)) {
+    [
+      "capturePrescaler",
+      "capturePscRegister",
+      "captureCounterPeriod",
+      "captureArrRegister",
+      "captureActualCounts",
+      "captureResolution",
+      "captureTickFrequency",
+      "captureOverflowHint",
+    ].forEach((key) => {
+      elements[key].textContent = "-";
+    });
+    elements.captureHint.textContent = "输入待测频率和期望每周期计数后，页面会给出更适合输入捕获的 PSC / ARR 组合。";
+    return;
+  }
+
+  const timerClockHz = apbClockMhz * 1_000_000;
+  const idealPrescaler = clamp(Math.round(timerClockHz / (signalHz * targetCounts)), 1, inputMax);
+  const captureTickHz = timerClockHz / idealPrescaler;
+  const actualCounts = captureTickHz / signalHz;
+  const recommendedCounterPeriod = clamp(Math.ceil(actualCounts * 1.25), 1, inputMax);
+  const resolutionUs = 1_000_000 / captureTickHz;
+  const overflowTimeMs = recommendedCounterPeriod / captureTickHz * 1000;
+
+  elements.capturePrescaler.textContent = String(idealPrescaler);
+  elements.capturePscRegister.textContent = `PSC 寄存器 = ${idealPrescaler - 1}`;
+  elements.captureCounterPeriod.textContent = String(recommendedCounterPeriod);
+  elements.captureArrRegister.textContent = `ARR 寄存器 = ${recommendedCounterPeriod - 1}`;
+  elements.captureActualCounts.textContent = formatNumber(actualCounts, 8);
+  elements.captureResolution.textContent = `计数分辨率 ${formatNumber(resolutionUs, 8)} μs`;
+  elements.captureTickFrequency.textContent = `${formatNumber(captureTickHz, 8)} Hz`;
+  elements.captureOverflowHint.textContent = `约 ${formatNumber(overflowTimeMs, 8)} ms 溢出一次`;
+  elements.captureHint.textContent = `目标每周期 ${targetCounts} 个计数；当前建议给了约 25% 裕量。`;
+}
+
 function buildMessages(baseMessages) {
   const messages = [...baseMessages];
   if (statusMessage) {
@@ -852,10 +1127,9 @@ function renderMessages(messages) {
   });
 }
 
-function getDutyModeConfig(counterPeriod, compareValue) {
+function getDutyModeConfig(counterPeriod, compareValue, mode = elements.dutyCycleMode.value) {
   const hardwareDuty = counterPeriod > 0 ? compareValue / counterPeriod * 100 : Number.NaN;
   const legacyDuty = counterPeriod === 1 ? Number.NaN : compareValue / (counterPeriod - 1) * 100;
-  const mode = elements.dutyCycleMode.value;
 
   return {
     mode,
@@ -864,6 +1138,14 @@ function getDutyModeConfig(counterPeriod, compareValue) {
     displayedDuty: mode === "hardware" ? hardwareDuty : legacyDuty,
     compareLimit: mode === "hardware" ? counterPeriod : Math.max(counterPeriod - 1, 0),
   };
+}
+
+function getCompareValueFromDuty(dutyPercent, counterPeriod, mode = elements.dutyCycleMode.value) {
+  const clampedDuty = clamp(dutyPercent, 0, 100);
+  const scale = mode === "hardware"
+    ? counterPeriod
+    : Math.max(counterPeriod - 1, 0);
+  return clamp(Math.round(scale * clampedDuty / 100), 0, scale);
 }
 
 function getDtgDecode(dtgValue) {
@@ -973,6 +1255,7 @@ function calculate() {
   renderMessages(allMessages);
   renderTargetFrequencyFeedback();
   renderDeadTimeReverseFeedback();
+  renderCapturePlanner(apbClockMhz, timerBits);
   elements.registerMax.textContent = formatNumber(registerMax, 0);
 
   if (baseMessages.some((item) => item.type === "error")) {
@@ -1014,6 +1297,8 @@ function calculate() {
   const deadTimeDuty = deadTimeUs / periodUs * 100;
   const clockProfileLabel = getSelectedClockProfile().label;
   const counterModeLabel = getCounterModeLabel(counterMode);
+  const targetDutyPercent = readNumber(elements.targetDutyPercent);
+  const hasTargetDutyPercent = elements.targetDutyPercent.value.trim() !== "";
 
   elements.pscRegister.textContent = formatNumber(pscRegister, 0);
   elements.arrRegister.textContent = formatNumber(arrRegister, 0);
@@ -1048,6 +1333,10 @@ function calculate() {
   elements.dtgActiveLabel.textContent = dtg.activeLabel;
   elements.dtgActiveDec.textContent = dtg.activeDec;
   elements.dtgActiveBin.textContent = dtg.activeBin;
+  elements.targetDutyHint.textContent = hasTargetDutyPercent && Number.isFinite(targetDutyPercent)
+    ? `按当前模式回填后，目标占空比 ${formatNumber(targetDutyPercent, 6)} % 会映射到对应 CCR。`
+    : "会按当前占空比口径和计数模式计算。";
+  elements.shareLinkHint.textContent = "分享链接会带上当前参数，接收方打开即可恢复。";
 
   updateDashboardMetrics({
     apbClockMhz,
@@ -1063,6 +1352,8 @@ function calculate() {
     periodUs,
     pulseWidthUs,
   });
+
+  renderChannelOutputs(counterPeriod, tickTimeUs, periodFactor, registerMax);
 
   renderWaveformPreview({
     hardwareDuty: dutyConfig.hardwareDuty,
@@ -1107,6 +1398,22 @@ function fillFallback() {
     "targetFrequencyActual",
     "targetFrequencyError",
     "targetFrequencyFit",
+    "channel1Duty",
+    "channel1Detail",
+    "channel2Duty",
+    "channel2Detail",
+    "channel3Duty",
+    "channel3Detail",
+    "channel4Duty",
+    "channel4Detail",
+    "capturePrescaler",
+    "capturePscRegister",
+    "captureCounterPeriod",
+    "captureArrRegister",
+    "captureActualCounts",
+    "captureResolution",
+    "captureTickFrequency",
+    "captureOverflowHint",
     "reverseDtgValue",
     "reverseDeadTimeActual",
     "reverseDeadTimeError",
@@ -1151,7 +1458,10 @@ function fillFallback() {
   elements.dtgStepLabel.textContent = "步长 Tdtg";
   elements.dtgActiveLabel.textContent = "当前有效字段";
   elements.targetFrequencyHint.textContent = "在目标频率输入框按 Enter 也可以直接回填。";
+  elements.targetDutyHint.textContent = "会按当前占空比口径和计数模式计算。";
   elements.targetDeadTimeHint.textContent = "这个反推沿用当前页面的 DTG / Tdts 计算逻辑。";
+  elements.shareLinkHint.textContent = "分享链接会带上当前参数，接收方打开即可恢复。";
+  elements.captureHint.textContent = "输入待测频率和期望每周期计数后，页面会给出更适合输入捕获的 PSC / ARR 组合。";
   renderWaveformPreview(null);
 }
 
@@ -1209,6 +1519,25 @@ async function copySnippet() {
   calculate();
 }
 
+function applyTargetDuty() {
+  const targetDutyPercent = readNumber(elements.targetDutyPercent);
+  const counterPeriod = readInt(elements.counterPeriod);
+
+  if (!(targetDutyPercent >= 0) || !(targetDutyPercent <= 100) || !Number.isInteger(counterPeriod) || counterPeriod < 1) {
+    statusMessage = { type: "warn", text: "请先输入 0 到 100 之间的目标占空比，并保证 ARR + 1 合法。" };
+    calculate();
+    return;
+  }
+
+  const compareValue = getCompareValueFromDuty(targetDutyPercent, counterPeriod);
+  elements.compareValue.value = String(compareValue);
+  statusMessage = {
+    type: "info",
+    text: `目标占空比 ${formatNumber(targetDutyPercent, 6)} % 已回填为 CCR = ${compareValue}。`,
+  };
+  calculate();
+}
+
 function applyTargetFrequency() {
   const targetFrequencyHz = readNumber(elements.targetFrequencyHz);
   const apbClockMhz = readNumber(elements.apbClockMhz);
@@ -1244,7 +1573,11 @@ function applyTargetFrequency() {
 
   for (let candidatePrescaler = searchStart; candidatePrescaler <= searchEnd; candidatePrescaler += 1) {
     const counterCandidate = clamp(Math.round(targetCounts / candidatePrescaler), 1, inputMax);
-    const actualFrequency = timerClockHz / (candidatePrescaler * counterCandidate);
+    const actualFrequency = timerClockHz / (
+      candidatePrescaler
+      * counterCandidate
+      * getCounterModePeriodFactor(counterMode)
+    );
     const relativeError = Math.abs(actualFrequency - targetFrequencyHz) / targetFrequencyHz;
     const candidate = {
       prescaler: candidatePrescaler,
@@ -1360,15 +1693,13 @@ function resetToDefaults() {
 }
 
 function saveState() {
-  const snapshot = {};
-  Object.keys(DEFAULT_STATE).forEach((key) => {
-    snapshot[key] = elements[key].value;
-  });
+  const snapshot = getStateSnapshot();
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(snapshot));
   } catch (error) {
     // Ignore storage failures.
   }
+  updateUrlState(snapshot);
 }
 
 function loadStateFromStorage(key) {
@@ -1381,20 +1712,25 @@ function loadStateFromStorage(key) {
 }
 
 function restoreState() {
-  const savedV3 = loadStateFromStorage(STORAGE_KEY);
-  const savedV2 = savedV3 ? null : loadStateFromStorage(LEGACY_STORAGE_KEY);
+  const savedState = loadStateFromStorage(STORAGE_KEY);
+  const legacyKey = savedState
+    ? null
+    : LEGACY_STORAGE_KEYS.find((key) => loadStateFromStorage(key) != null) ?? null;
+  const legacyState = legacyKey ? loadStateFromStorage(legacyKey) : null;
+  const urlState = loadStateFromUrl();
   const restoredState = {
     ...DEFAULT_STATE,
-    ...(savedV3 ?? savedV2 ?? {}),
+    ...(savedState ?? legacyState ?? {}),
+    ...(urlState ?? {}),
   };
 
   resetInputs(restoredState);
 
-  if (savedV2 && !savedV3) {
+  if ((legacyState || urlState) && !savedState) {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(restoredState));
-      if (typeof localStorage.removeItem === "function") {
-        localStorage.removeItem(LEGACY_STORAGE_KEY);
+      if (typeof localStorage.removeItem === "function" && legacyKey) {
+        localStorage.removeItem(legacyKey);
       }
     } catch (error) {
       // Ignore migration failures.

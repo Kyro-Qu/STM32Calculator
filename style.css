@@ -23,6 +23,23 @@
   font-family: "Segoe UI", "Microsoft YaHei", sans-serif;
 }
 
+body[data-theme="light"] {
+  color-scheme: light;
+  --bg: #f3f7fd;
+  --bg-soft: #ffffff;
+  --panel: rgba(255, 255, 255, 0.92);
+  --panel-border: rgba(148, 163, 184, 0.24);
+  --panel-highlight: rgba(37, 99, 235, 0.08);
+  --card: rgba(248, 250, 252, 0.96);
+  --card-2: rgba(241, 245, 249, 0.98);
+  --field: rgba(248, 250, 252, 0.98);
+  --text: #0f172a;
+  --muted: #475569;
+  --muted-strong: #1e293b;
+  --shadow: 0 24px 60px rgba(15, 23, 42, 0.12);
+  --shadow-soft: 0 12px 28px rgba(15, 23, 42, 0.08);
+}
+
 * {
   box-sizing: border-box;
 }
@@ -40,6 +57,13 @@ body {
     radial-gradient(circle at left bottom, rgba(167, 139, 250, 0.12), transparent 18%),
     linear-gradient(180deg, #060d1a 0%, #091120 45%, #07111f 100%);
   color: var(--text);
+}
+
+body[data-theme="light"] {
+  background:
+    radial-gradient(circle at top right, rgba(96, 165, 250, 0.14), transparent 24%),
+    radial-gradient(circle at 10% 10%, rgba(34, 211, 238, 0.12), transparent 20%),
+    linear-gradient(180deg, #f8fbff 0%, #eef4fb 55%, #f5f8fc 100%);
 }
 
 body::before {
@@ -152,6 +176,12 @@ small,
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
+}
+
+.hero-toolbar {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
 }
 
 .hero-badge {
@@ -472,6 +502,10 @@ select:focus {
   align-items: end;
 }
 
+.helper-box-inline {
+  margin-top: 16px;
+}
+
 .helper-box-sidebar {
   flex-direction: column;
   align-items: stretch;
@@ -515,6 +549,12 @@ select:focus {
   align-items: stretch;
 }
 
+.button-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
 .helper-field {
   min-width: 220px;
 }
@@ -554,6 +594,15 @@ select:focus {
 
 .helper-metric-wide {
   grid-column: 1 / -1;
+}
+
+.channel-input-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin-bottom: 16px;
+}
+
+.channel-result-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
 .button {
@@ -720,6 +769,48 @@ table {
   border: 1px solid rgba(148, 163, 184, 0.12);
 }
 
+body[data-theme="light"] .hero-card,
+body[data-theme="light"] .side-card-highlight,
+body[data-theme="light"] .card:nth-child(3n + 1),
+body[data-theme="light"] .card:nth-child(3n + 2) {
+  background:
+    radial-gradient(circle at top right, rgba(96, 165, 250, 0.12), transparent 32%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(241, 245, 249, 0.98));
+}
+
+body[data-theme="light"] .hero-badge,
+body[data-theme="light"] .field,
+body[data-theme="light"] .helper-metric,
+body[data-theme="light"] .live-item,
+body[data-theme="light"] .formula-node,
+body[data-theme="light"] .tip-card,
+body[data-theme="light"] .wave-chip,
+body[data-theme="light"] .wave-canvas,
+body[data-theme="light"] table,
+body[data-theme="light"] .snippet {
+  background: rgba(255, 255, 255, 0.94);
+}
+
+body[data-theme="light"] input,
+body[data-theme="light"] select {
+  background: rgba(255, 255, 255, 0.98);
+  color: #0f172a;
+}
+
+body[data-theme="light"] .label,
+body[data-theme="light"] .field span,
+body[data-theme="light"] .hero-card-title,
+body[data-theme="light"] th,
+body[data-theme="light"] .card strong,
+body[data-theme="light"] .wave-chip strong,
+body[data-theme="light"] .hero-kpi strong,
+body[data-theme="light"] .live-item strong,
+body[data-theme="light"] .helper-metric strong,
+body[data-theme="light"] .formula-node strong,
+body[data-theme="light"] .tip-card span {
+  color: #0f172a;
+}
+
 th,
 td {
   padding: 14px 16px;
@@ -825,6 +916,8 @@ tbody tr:last-child td {
 
   .input-grid-wide,
   .input-grid-narrow,
+  .channel-input-grid,
+  .channel-result-grid,
   .live-grid,
   .hero-kpis,
   .tips-grid,
@@ -840,5 +933,56 @@ tbody tr:last-child td {
 
   .formula-arrow {
     margin-left: 0;
+  }
+}
+
+@media print {
+  body,
+  body[data-theme="light"] {
+    background: #ffffff !important;
+    color: #000000 !important;
+  }
+
+  body::before,
+  .hero-badges,
+  .hero-toolbar,
+  .button,
+  .messages,
+  .helper-note {
+    display: none !important;
+  }
+
+  .container {
+    width: 100%;
+    padding: 0;
+  }
+
+  .hero,
+  .panel,
+  .subpanel,
+  .side-card,
+  .helper-box,
+  .card,
+  .field,
+  table,
+  .wave-canvas,
+  .snippet {
+    background: #ffffff !important;
+    color: #000000 !important;
+    box-shadow: none !important;
+    border-color: #d1d5db !important;
+  }
+
+  input,
+  select,
+  .hero-badge {
+    background: #ffffff !important;
+    color: #000000 !important;
+    border-color: #d1d5db !important;
+  }
+
+  .hero,
+  .panel {
+    break-inside: avoid;
   }
 }
